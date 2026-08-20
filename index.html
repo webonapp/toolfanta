@@ -1814,7 +1814,7 @@ function loadRoster(){
   return normalizeRoster({ budget:500, leagueSize:10, picks:{} });
 }
 let ROSTER = loadRoster();
-let ENGINE_REV=0;
+let ENGINE_REV=2001;
 const REC_CACHE=new Map();
 let listoneController=null;
 function invalidateEngine(){ ENGINE_REV++; REC_CACHE.clear(); }
@@ -1933,12 +1933,14 @@ function targetBoardHTML(){
   return `<div class="target-board">${rows.map(o=>{const pick=ROSTER.picks[o.key],skip=isSkipped(o.p),r=recommendationFor(o.p),status=pick?(pick.owner==='me'?'✓ MIO':'VENDUTO'):skip?'⏭ SKIP':'LIBERO';const sc=pick?'sold':skip?'skip':'free';return `<button class="target-board-row ${sc}" data-target-open="${encodeURIComponent(o.key)}"><span class="target-priority">${targetPriorityLabel(o.meta.priority)}</span><span class="target-board-main"><b>${esc(o.p.name)}</b><small>${esc(CAL.teamNames[o.p.team]||o.p.team)} · ${o.p.role.toUpperCase()} · ${status}</small></span><span class="target-board-price"><small>MKT ${r.marketFair}</small><b>TU ${r.fair}</b></span></button>`;}).join('')}</div>`;
 }
 function budgetPlannerHTML(){
-  const counts=roleCounts('me'),rem=budgetRemaining(),slots=Math.max(1,TOTAL_SLOTS-ownerPicks('me').length),plan=adaptiveStrategyPlan(),shares=plan.effective;
-  const raw=ROLE_ORDER.map(role=>{const missing=Math.max(0,ROLE_TARGETS[role]-counts[role]);if(!missing)return null;return {role,missing,target:Math.max(missing,ROSTER.budget*shares[role]-roleSpent('me',role)),slot:rosterSlotProfile(role)};}).filter(Boolean);
-  const denom=raw.reduce((s,x)=>s+x.target,0)||1;let allocations=raw.map(x=>({...x,alloc:Math.max(x.missing,Math.round(rem*x.target/denom))})),total=allocations.reduce((s,x)=>s+x.alloc,0);
-  while(total>rem){const c=allocations.filter(x=>x.alloc>x.missing).sort((a,b)=>(b.alloc-b.missing)-(a.alloc-a.missing))[0];if(!c)break;c.alloc--;total--;}
-  while(total<rem&&allocations.length){const c=[...allocations].sort((a,b)=>(b.target-b.alloc)-(a.target-a.alloc))[0];c.alloc++;total++;}
-  const rows=allocations.map(x=>{const avg=Math.max(1,Math.round(x.alloc/x.missing)),premium=x.slot.premiumMissing,premiumBudget=premium?Math.min(x.alloc-(x.missing-premium),Math.max(avg,Math.round(avg*(x.role==='a'?1.95:x.role==='c'?1.70:x.role==='d'?1.55:1.4)))):avg,ri=plan.infl[x.role]||1,marketNote=ri>plan.global*1.12?'mercato caro':ri<plan.global*.90?'mercato conveniente':'mercato in linea';return `<div class="planner-row predictive"><span><b>${ROLE_NAMES[x.role]}</b><small>${x.missing} slot · ${premium?premium+' premium da coprire':'premium coperti'}</small></span><span class="planner-bar"><i style="width:${Math.min(100,Math.round(x.alloc/Math.max(1,rem)*100))}%"></i></span><span><b>${x.alloc} cr.</b><small>media ${avg} · premium ~${premiumBudget}</small><em class="planner-note">${marketNote} · ${ri.toFixed(2)}×</em></span></div>`;}).join('');
+  const eco=economicRolePlan(),rem=eco.remaining,slots=Math.max(1,TOTAL_SLOTS-ownerPicks('me').length),plan=eco.plan;
+  const rows=eco.rows.map(x=>{
+    const avg=Math.max(1,Math.round(x.alloc/x.missing)),premium=x.slot.premiumMissing;
+    const premiumShare=premium>=4?.42:premium===3?.52:premium===2?.72:.82;
+    const premiumMax=premium?Math.max(avg,Math.round(x.alloc*premiumShare)):avg;
+    const ri=plan.infl[x.role]||1,marketNote=ri>plan.global*1.12?'mercato caro':ri<plan.global*.90?'mercato conveniente':'mercato in linea';
+    return `<div class="planner-row predictive"><span><b>${ROLE_NAMES[x.role]}</b><small>${x.missing} slot · ${premium?premium+' premium da coprire':'premium coperti'}</small></span><span class="planner-bar"><i style="width:${Math.min(100,Math.round(x.alloc/Math.max(1,rem)*100))}%"></i></span><span><b>${x.alloc} cr.</b><small>media ${avg} · max premium ora ~${premiumMax}</small><em class="planner-note">${marketNote} · ${ri.toFixed(2)}×</em></span></div>`;
+  }).join('');
   return `<div class="budget-planner"><div class="planner-head"><b>Budget Planner predittivo</b><span>${rem} cr. · ${slots} slot</span>${plan.notes.length?`<small class="planner-adapt">↻ ${esc(plan.notes[0])}</small>`:''}</div>${rows||'<div class="target-empty">Rosa completa.</div>'}</div>`;
 }
 function targetAlternativeWarning(p,price){
@@ -2889,7 +2891,7 @@ function historicalAuctionBaseline(p){
   else if(pct>=.965)weight=.76;
   else if(pct>=.94)weight=.55;
   else if(pct>=.92)weight=.34;
-  const scaledRaw=raw*budgetScale;
+  const scaledRaw=raw;
   if(weight<=0)return Math.max(1,scaledRaw);
   return Math.max(1,scaledRaw*(1-weight)+targetMid*weight);
 }
@@ -2898,6 +2900,46 @@ function historicalAuctionBand(p){
   if(!a)return null;
   return {low:Math.round(a.low*scale),high:Math.round(a.high*scale),mid:a.mid*scale,explicit:historicalAnchorMatch(p)};
 }
+
+function roleHistoricalCeiling(role){
+  const a=HISTORICAL_500_ANCHORS[role],scale=Math.max(.10,Number(ROSTER?.budget||500)/500);
+  return a?{low:a.low*scale,high:a.high*scale,mid:a.mid*scale}:null;
+}
+function roleTierScale(tier){
+  const map={elite:1.00,top:.82,mid:.58,low:.32};
+  return map[tier]??.45;
+}
+function comparableTierSales(p){
+  const tier=qualityTier(p);
+  return soldEntries(p.role).filter(o=>qualityTier(o.p)===tier);
+}
+function liveRoleTierCeiling(p){
+  const hist=roleHistoricalCeiling(p.role);
+  if(!hist)return {ceiling:Infinity,base:Infinity,raised:false,n:0,above:0,observed:null};
+  const tier=qualityTier(p),baseCeiling=Math.max(1,hist.high*roleTierScale(tier));
+  const prices=comparableTierSales(p).map(o=>Number(o.x.price)||0).filter(v=>v>0).sort((a,b)=>a-b);
+  const above=prices.filter(v=>v>baseCeiling*1.03);
+  if(above.length<2)return {ceiling:baseCeiling,base:baseCeiling,raised:false,n:prices.length,above:above.length,observed:prices.length?prices[Math.floor(prices.length/2)]:null};
+  const mid=above.length%2?above[Math.floor((above.length-1)/2)]:(above[Math.floor(above.length/2)-1]+above[Math.floor(above.length/2)])/2;
+  const confidence=clamp((above.length-1)/4,.25,1),observed=Math.max(baseCeiling,mid);
+  const raised=baseCeiling+(observed-baseCeiling)*confidence,hardCap=hist.high*1.35;
+  return {ceiling:Math.min(hardCap,raised),base:baseCeiling,raised:true,n:prices.length,above:above.length,observed};
+}
+function anchoredMarketValue(p,rawValue){
+  const tier=qualityTier(p),hist=roleHistoricalCeiling(p.role);
+  if(!hist)return rawValue;
+  const live=liveRoleTierCeiling(p),floorScale={elite:.72,top:.60,mid:.40,low:.18}[tier]??.35;
+  const softFloor=hist.low*floorScale;
+  let value=Math.min(rawValue,live.ceiling);
+  if(historicalAnchorMatch(p)){
+    value=Math.max(value,hist.low);
+    value=Math.min(value,live.ceiling);
+  }else{
+    value=Math.max(1,Math.max(softFloor,value));
+  }
+  return value;
+}
+
 
 function rawPlayerScore(p){
   const q=Number(p.qaC)||0,f=Number(p.fvmC)||0,fm=Number(p.fm)||0,mv=Number(p.mv)||0,pb=Number(p.probBonus)||0,pv=Number(p.pv)||0;
@@ -2913,7 +2955,7 @@ function tierLabel(t){ return ({elite:'Élite',top:'Top',mid:'Intermedio',value:
 function soldEntries(role=null){
   return Object.entries(ROSTER.picks).map(([k,x])=>({k,x,p:DATA_BY_KEY[k]})).filter(o=>o.p&&(!role||o.p.role===role)&&Number(o.x.price)>0).sort((a,b)=>(a.x.seq||0)-(b.x.seq||0));
 }
-function purchaseRatio(o){return Number(o.x.price)/Math.max(1,Number(o.x.baselineRef)||historicalAuctionBaseline(o.p));}
+function purchaseRatio(o){const prior=Math.max(Number(o.x.baselineRef)||0,historicalAuctionBaseline(o.p));return Number(o.x.price)/Math.max(1,prior);}
 function robustRatio(entries){
   const vals=entries.map(purchaseRatio).filter(x=>Number.isFinite(x)&&x>.08&&x<8);if(!vals.length)return {value:1,n:0,dispersion:1};
   const med=median(vals), lo=med*.55, hi=med*1.65, clipped=vals.map(v=>clamp(v,lo,hi));
@@ -2922,7 +2964,17 @@ function robustRatio(entries){
   return {value,n:vals.length,dispersion:disp,median:med};
 }
 function inflationFromEntries(entries){const r=robustRatio(entries);if(r.n<2)return 1;const c=r.n===2?(r.dispersion<.18?.72:.48):r.n===3?.80:r.n<6?.88:.94;return clamp(1+c*(r.value-1),.55,4.25);}
-function marketInflation(role=null,recent=false){let e=soldEntries(role);if(recent)e=e.slice(-(role?8:14));return inflationFromEntries(e);}
+function marketInflation(role=null,recent=false){
+  let e=soldEntries(role);if(recent)e=e.slice(-(role?8:14));
+  if(e.length<2)return 1;
+  const raw=inflationFromEntries(e);
+  // Early auctions are noisy: do not let a few premium sales redefine the whole room.
+  const sampleConfidence=role?clamp(e.length/10,.18,.92):clamp(e.length/24,.10,.90);
+  const progressConfidence=role?clamp(.25+roleMarketProgress(role)*1.15,.25,1):clamp(.18+auctionProgress()*1.50,.18,1);
+  const confidence=Math.min(sampleConfidence,progressConfidence);
+  const cap=role?(e.length<4?1.28:e.length<7?1.55:2.35):(e.length<12?1.24:e.length<24?1.45:e.length<40?1.70:2.10);
+  return clamp(1+confidence*(raw-1),.72,cap);
+}
 
 /* ---------------- GLOBAL ROOM REBALANCE ----------------
    Se almeno 2 acquisti reali superano in modo coerente la stima di mercato
@@ -2932,7 +2984,7 @@ function marketInflation(role=null,recent=false){let e=soldEntries(role);if(rece
    restare superiore al riallineamento globale. */
 function roomRebalanceSignal(){
   const entries=soldEntries().slice(-18).map(o=>{
-    const predicted=Number(o.x.predictedMarket)||Number(o.x.predictedFair)||Number(o.x.baselineRef)||historicalAuctionBaseline(o.p);
+    const predicted=Math.max(Number(o.x.predictedMarket)||0,Number(o.x.predictedFair)||0,Number(o.x.baselineRef)||0,historicalAuctionBaseline(o.p));
     const price=Number(o.x.price)||0;
     const ratio=predicted>0?price/predicted:1;
     return {...o,predicted,ratio};
@@ -2948,7 +3000,11 @@ function roomRebalanceSignal(){
   // Se gli ultimi due segnali sono entrambi molto forti, reagisci piu' rapidamente.
   const latest=hot.slice(-2);
   if(latest.length===2 && latest.every(o=>o.ratio>=1.35)) confidence=Math.max(confidence,.80);
-  const factor=clamp(1+confidence*(target-1),1,3.00);
+  const soldN=soldEntries().length;
+  const earlyConfidence=soldN<8?.18:soldN<12?.28:soldN<20?.42:soldN<35?.62:.82;
+  confidence=Math.min(confidence,earlyConfidence);
+  const earlyCap=soldN<8?1.15:soldN<12?1.25:soldN<20?1.38:soldN<35?1.60:2.20;
+  const factor=clamp(1+confidence*(target-1),1,earlyCap);
   return {active:true,factor,target,n:hot.length,confidence,dispersion,signals:hot};
 }
 function comparableMarket(p){
@@ -3042,6 +3098,50 @@ function roleSpent(owner,role){return ownerPicks(owner).filter(x=>x.role===role)
 function strategicReserve(excludeRole=null,hypotheticalRole=null,hypotheticalPrice=0){
   const shares=strategyShares(),counts=roleCounts('me');let reserve=0;
   ROLE_ORDER.forEach(r=>{let have=counts[r]+(hypotheticalRole===r?1:0),missing=Math.max(0,ROLE_TARGETS[r]-have);if(!missing||r===excludeRole)return;const target=Math.round(ROSTER.budget*shares[r]);const spent=roleSpent('me',r)+(hypotheticalRole===r?hypotheticalPrice:0);reserve+=Math.max(missing,Math.round(Math.max(0,target-spent)*.70));});return reserve;
+}
+
+function economicRolePlan(){
+  const counts=roleCounts('me'),rem=Math.max(0,budgetRemaining()),plan=adaptiveStrategyPlan(),shares=plan.effective;
+  const raw=ROLE_ORDER.map(role=>{
+    const missing=Math.max(0,ROLE_TARGETS[role]-counts[role]);if(!missing)return null;
+    const targetGap=Math.max(missing,ROSTER.budget*shares[role]-roleSpent('me',role));
+    return {role,missing,targetGap,slot:rosterSlotProfile(role)};
+  }).filter(Boolean);
+  const denom=raw.reduce((s,x)=>s+x.targetGap,0)||1;
+  let rows=raw.map(x=>({...x,alloc:Math.max(x.missing,Math.round(rem*x.targetGap/denom))}));
+  let total=rows.reduce((s,x)=>s+x.alloc,0);
+  while(total>rem){
+    const c=rows.filter(x=>x.alloc>x.missing).sort((a,b)=>(b.alloc-b.missing)-(a.alloc-a.missing))[0];
+    if(!c)break;c.alloc--;total--;
+  }
+  while(total<rem&&rows.length){
+    const c=[...rows].sort((a,b)=>(b.targetGap-b.alloc)-(a.targetGap-a.alloc))[0];
+    c.alloc++;total++;
+  }
+  return {remaining:rem,rows,byRole:Object.fromEntries(rows.map(x=>[x.role,x])),plan};
+}
+function personalEconomicCeiling(p){
+  const eco=economicRolePlan(),row=eco.byRole[p.role],remaining=eco.remaining,slotsLeft=Math.max(0,TOTAL_SLOTS-ownerPicks('me').length);
+  if(!row||row.missing<=0)return {cap:1,absoluteMax:1,roleCap:1,roleAlloc:0,reason:'reparto completo',eco};
+  const absoluteMax=Math.max(1,remaining-Math.max(0,slotsLeft-1));
+  const tier=qualityTier(p),premiumCandidate=['elite','top'].includes(tier),pm=row.slot.premiumMissing,missing=row.missing;
+  let roleCap;
+  if(premiumCandidate&&pm>0){
+    const share=pm>=4?.42:pm===3?.52:pm===2?.72:.82;
+    roleCap=Math.round(row.alloc*share);
+  }else{
+    const avg=row.alloc/Math.max(1,missing);
+    const multiplier=tier==='top'?1.85:tier==='mid'?1.45:1.20;
+    roleCap=Math.round(avg*multiplier);
+  }
+  // Always leave at least one credit for every remaining slot in the same role.
+  roleCap=Math.min(roleCap,Math.max(1,row.alloc-Math.max(0,missing-1)));
+  let cap=Math.max(1,Math.min(absoluteMax,roleCap,row.alloc));
+  const ri=eco.plan.infl[p.role]||1,global=eco.plan.global||1;
+  // A genuine late scarcity can unlock a tiny controlled override, never enough to raid other departments.
+  if(roleMarketProgress(p.role)>.62&&ri>global*1.08&&missing<=2)cap=Math.min(absoluteMax,row.alloc,Math.round(cap*1.06));
+  const reason=`${row.alloc} cr. pianificati per ${ROLE_NAMES[p.role].toLowerCase()} · ${missing} slot rimasti${pm?` · ${pm} premium da coprire`:''}`;
+  return {cap,absoluteMax,roleCap,roleAlloc:row.alloc,missing,premiumMissing:pm,reason,eco};
 }
 function teamTopNeed(owner,role,tier){
   const owned=ownerPicks(owner).map(x=>DATA_BY_KEY[x.name+'|'+x.team]).filter(Boolean).filter(x=>x.role===role);
@@ -3177,25 +3277,36 @@ function recommendationFor(p){
   // Prima calcoliamo il valore NEUTRO della stanza. La concorrenza viene stimata su questo valore,
   // così una necessità personale non può contaminare il mercato generale.
   let generalMarketValue=base*leagueFactor*marketMult*scarcity.factor*replacement.factor*phaseFactor*techFactor;
+  const anchorCeiling=liveRoleTierCeiling(p);
+  const uncappedGeneralPreCompetition=generalMarketValue;
+  generalMarketValue=anchoredMarketValue(p,generalMarketValue);
   const neutralPrelim=Math.max(1,Math.round(generalMarketValue));
   const threats=opponentCompetition(p,neutralPrelim),hot=threats.filter(t=>t.score>=3).length;
   const competitionFactor=clamp(1+Math.min(6,hot)*.015,.98,1.09);
   generalMarketValue*=competitionFactor;
+  generalMarketValue=anchoredMarketValue(p,generalMarketValue);
   // Solo dopo il valore di stanza applichiamo il fabbisogno/strategia personale.
   let marketValue=generalMarketValue*needFactor;
+  const uncappedMarketValue=marketValue;
+  marketValue=anchoredMarketValue(p,marketValue);
   const marketFair=Math.max(1,Math.round(generalMarketValue));
   const marketStop=Math.max(marketFair,Math.round(marketFair*(['elite','top'].includes(tier)?1.13:1.10)));
   const marketDeal=Math.max(1,Math.round(marketFair*(['elite','top'].includes(tier)?.84:.80)));
   let fair=Math.max(1,Math.round(marketValue)),stop=Math.max(fair,Math.round(fair*(['elite','top'].includes(tier)?1.13:1.10))),deal=Math.max(1,Math.round(fair*(['elite','top'].includes(tier)?.84:.80)));
-  if(affordable>0){stop=Math.min(stop,affordable);fair=Math.min(fair,stop);deal=Math.min(deal,fair);}else{stop=fair=deal=1;}
+  const economic=personalEconomicCeiling(p);
+  const personalCap=Math.max(1,Math.min(affordable||1,economic.cap));
+  stop=Math.min(stop,personalCap);
+  fair=Math.min(fair,stop);
+  deal=Math.min(deal,fair);
+  if(personalCap<=1&&roleLeft<=0)stop=fair=deal=1;
   const competition=hot>=4?'ALTISSIMA':hot>=2?'ALTA':threats.filter(t=>t.score>=2).length>=2?'MEDIA':'BASSA';
   const factors=[];
   const historicalBand=historicalAuctionBand(p);
   if(historicalBand?.explicit)factors.push({label:`storico aste ${historicalBand.low}-${historicalBand.high}`,value:base/Math.max(1,refPrice(p)),impact:base/Math.max(1,refPrice(p))-1});
-  const add=(label,value)=>{if(Math.abs(value-1)>=.025)factors.push({label,value,impact:value-1});};add('mercato comparabili',localMarketMult);add(`curva ${tierLabel(tier).toLowerCase()} ${p.role.toUpperCase()}`,tierMarket.multiplier);add('riallineamento globale',marketMult/Math.max(.01,localMarketMult));add('scarsità',scarcity.factor);add('replacement',replacement.factor);add('dato tecnico 25/26',techFactor);add('fase asta',phaseFactor);add('concorrenza',competitionFactor);add(`${ROSTER.leagueSize} squadre`,leagueFactor);add('strategia',needFactor);factors.sort((a,b)=>Math.abs(b.impact)-Math.abs(a.impact));
-  let verdict='RILANCIA fino al prezzo giusto, poi valuta la stanza.';if(stop<=fair)verdict='Budget al limite: questo è già il tuo tetto.';else if(roomRebalance.active && roomRebalance.factor>localMarketMult*1.04)verdict='RIALLINEAMENTO GLOBALE: almeno due prezzi reali hanno superato nettamente le stime e il sistema ha alzato il livello di tutti i ruoli.';else if(market.shock)verdict='CAMBIO REGIME rilevato: i comparabili stanno uscendo molto sopra il riferimento iniziale.';else if(competition==='BASSA')verdict='Poca concorrenza reale: non rilanciare contro te stesso.';else if(scarcity.level==='Alta'&&['elite','top'].includes(tier))verdict='Scarsità alta: puoi usare una parte del margine fino allo STOP.';
+  const add=(label,value)=>{if(Math.abs(value-1)>=.025)factors.push({label,value,impact:value-1});};add('mercato comparabili',localMarketMult);add(`curva ${tierLabel(tier).toLowerCase()} ${p.role.toUpperCase()}`,tierMarket.multiplier);factors.push({label:`tetto ${p.role.toUpperCase()} ${tierLabel(tier).toLowerCase()} ${Math.round(anchorCeiling.ceiling)}`,value:marketValue/Math.max(1,uncappedMarketValue),impact:marketValue/Math.max(1,uncappedMarketValue)-1});add('riallineamento globale',marketMult/Math.max(.01,localMarketMult));add('scarsità',scarcity.factor);add('replacement',replacement.factor);add('dato tecnico 25/26',techFactor);add('fase asta',phaseFactor);add('concorrenza',competitionFactor);add(`${ROSTER.leagueSize} squadre`,leagueFactor);add('strategia',needFactor);if(personalCap<marketFair)factors.push({label:'vincolo completamento rosa',value:personalCap/Math.max(1,marketFair),impact:personalCap/Math.max(1,marketFair)-1});factors.sort((a,b)=>Math.abs(b.impact)-Math.abs(a.impact));
+  let verdict=personalCap<marketFair?'VALORE DI MERCATO OK, MA NON PER TE: proteggi i crediti necessari a completare la rosa.':'RILANCIA fino al prezzo giusto, poi valuta la stanza.';if(personalCap<marketFair)verdict='VALORE DI MERCATO OK, MA NON PER TE: il tuo tetto deriva dal piano economico della rosa.';else if(stop<=fair)verdict='Budget al limite: questo è già il tuo tetto.';else if(roomRebalance.active && roomRebalance.factor>localMarketMult*1.04)verdict='RIALLINEAMENTO GLOBALE: almeno due prezzi reali hanno superato nettamente le stime e il sistema ha alzato il livello di tutti i ruoli.';else if(market.shock)verdict='CAMBIO REGIME rilevato: i comparabili stanno uscendo molto sopra il riferimento iniziale.';else if(competition==='BASSA')verdict='Poca concorrenza reale: non rilanciare contro te stesso.';else if(scarcity.level==='Alta'&&['elite','top'].includes(tier))verdict='Scarsità alta: puoi usare una parte del margine fino allo STOP.';
   const confidence=Math.round(25+market.confidence*55+Math.min(20,soldEntries(p.role).length*2));
-  const result={base,historicalBand,percentile,tier,leagueFactor,market,tierMarket,marketValue:Math.round(marketValue),generalMarketValue:Math.round(generalMarketValue),predictedMultiplier:marketMult,localMarketMult,roomRebalance,globalInfl,roleInfl,recentInfl,progress:auctionProgress(),roleProgress:roleMarketProgress(p.role),scarcity,tierScarcity,replacement,slotProfile,roleLeft,slotsLeft,remaining,reserveOther,affordable,needFactor,marketDeal,marketFair,marketStop,deal,fair,stop,max:stop,low:deal,competition,threats,hot,verdict,confidence:clamp(confidence,20,99),technical:tech,technicalFactor:techFactor,factors};
+  const result={base,historicalBand,anchorCeiling,uncappedMarketValue:Math.round(uncappedMarketValue),uncappedGeneralPreCompetition:Math.round(uncappedGeneralPreCompetition),economic,personalCap,percentile,tier,leagueFactor,market,tierMarket,marketValue:Math.round(marketValue),generalMarketValue:Math.round(generalMarketValue),predictedMultiplier:marketMult,localMarketMult,roomRebalance,globalInfl,roleInfl,recentInfl,progress:auctionProgress(),roleProgress:roleMarketProgress(p.role),scarcity,tierScarcity,replacement,slotProfile,roleLeft,slotsLeft,remaining,reserveOther,affordable,needFactor,marketDeal,marketFair,marketStop,deal,fair,stop,max:stop,low:deal,competition,threats,hot,verdict,confidence:clamp(confidence,20,99),technical:tech,technicalFactor:techFactor,factors};
   REC_CACHE.set(cacheKey,result);
   return result;
 }
@@ -3209,7 +3320,8 @@ function advisorConfidence(p){
 }
 function predictedPriceRange(p){
   const r=recommendationFor(p),confidence=advisorConfidence(p),spread=confidence.level==='ALTA'?.08:confidence.level==='MEDIA'?.14:.22,center=Math.max(1,r.marketFair||r.fair);
-  return {low:Math.max(1,Math.round(center*(1-spread))),high:Math.max(1,Math.round(center*(1+spread))),center:Math.round(center),confidence};
+  const ceiling=Number.isFinite(r.anchorCeiling?.ceiling)?Math.max(1,Math.round(r.anchorCeiling.ceiling)):Infinity;
+  return {low:Math.max(1,Math.min(ceiling,Math.round(center*(1-spread)))),high:Math.max(1,Math.min(ceiling,Math.round(center*(1+spread)))),center:Math.min(ceiling,Math.round(center)),confidence};
 }
 function dropoffInfo(p){
   const free=DATA.filter(x=>x.role===p.role&&!ROSTER.picks[playerKey(x)]).map(x=>({p:x,s:rawPlayerScore(x)})).sort((a,b)=>b.s-a.s),idx=free.findIndex(x=>playerKey(x.p)===playerKey(p));
@@ -3217,12 +3329,12 @@ function dropoffInfo(p){
   const gap=Math.max(0,(free[idx].s-next.s)/Math.max(1,free[idx].s)*100),score=clamp(gap*8,0,100);return {gap,score,level:score>=60?'ALTO':score>=30?'MEDIO':'BASSO',next:next.p};
 }
 function simulatePurchase(p,price){
-  const before=budgetRemaining(),after=Math.max(0,before-price),slots=Math.max(0,TOTAL_SLOTS-ownerPicks('me').length-1),counts=roleCounts('me'),reserve=Math.max(slots,strategicReserve(p.role)),slot=rosterSlotProfile(p.role),drop=dropoffInfo(p);
+  const before=budgetRemaining(),after=Math.max(0,before-price),slots=Math.max(0,TOTAL_SLOTS-ownerPicks('me').length-1),slot=rosterSlotProfile(p.role),drop=dropoffInfo(p),economic=personalEconomicCeiling(p);
   const reachable=DATA.filter(x=>!ROSTER.picks[playerKey(x)]&&playerKey(x)!==playerKey(p)&&recommendationFor(x).fair<=Math.max(1,after)).length;
-  return {before,after,slots,margin:after-reserve,premiumAfter:Math.max(0,slot.premiumMissing-(['elite','top'].includes(qualityTier(p))?1:0)),reachable,drop};
+  return {before,after,slots,margin:economic.cap-price,premiumAfter:Math.max(0,slot.premiumMissing-(['elite','top'].includes(qualityTier(p))?1:0)),reachable,drop,economicCap:economic.cap};
 }
 function simulatePurchaseHTML(p,price){
-  const s=simulatePurchase(p,price);return `<div class="simulate-box"><h4>🧪 Simula acquisto a ${price}</h4><div class="simulate-grid"><div class="simulate-kpi"><b>${s.after}</b><small>crediti rimasti</small></div><div class="simulate-kpi"><b>${s.slots}</b><small>slot rimasti</small></div><div class="simulate-kpi"><b>${s.margin>=0?'+':''}${s.margin}</b><small>margine vs riserva</small></div><div class="simulate-kpi"><b>${s.premiumAfter}</b><small>premium necessari</small></div></div><div style="margin-top:7px;font-size:9px;color:var(--ink-soft)">Profili ancora raggiungibili: ${s.reachable} · Cliff: ${s.drop.level}${s.drop.next?' → '+esc(s.drop.next.name):''}</div></div>`;
+  const s=simulatePurchase(p,price);return `<div class="simulate-box"><h4>🧪 Simula acquisto a ${price}</h4><div class="simulate-grid"><div class="simulate-kpi"><b>${s.after}</b><small>crediti rimasti</small></div><div class="simulate-kpi"><b>${s.slots}</b><small>slot rimasti</small></div><div class="simulate-kpi"><b>${s.margin>=0?'+':''}${s.margin}</b><small>margine vs riserva</small></div><div class="simulate-kpi"><b>${s.premiumAfter}</b><small>premium necessari</small></div></div><div style="margin-top:7px;font-size:9px;color:var(--ink-soft)">Cap economico personale: ${s.economicCap} · Profili ancora raggiungibili: ${s.reachable} · Cliff: ${s.drop.level}${s.drop.next?' → '+esc(s.drop.next.name):''}</div></div>`;
 }
 function opponentBehaviour(owner){
   const rows=soldEntries().filter(x=>x.owner===owner);if(!rows.length)return {n:0,avg:1,label:'NON LETTA',topBias:1};
@@ -3249,7 +3361,7 @@ function auctionAdvisorFor(p,price=null){
   let ceiling=r.stop;if(action==='ASPETTA')ceiling=Math.min(r.stop,Math.max(r.fair,Math.round(r.fair*1.04)));if(action==='PASSA')ceiling=Math.min(r.stop,Math.max(1,r.fair));
   const why=[];if(r.slotProfile.premiumMissing>0&&['elite','top'].includes(r.tier))why.push(`ti manca uno slot premium ${p.role.toUpperCase()}`);if(wait.level==='ALTO')why.push(`rischio attesa ${Math.round(wait.score)}/100`);
   if(opp.similar>=5)why.push(`${opp.similar} alternative simili ancora libere`);else if(opp.similar<=2)why.push(`solo ${opp.similar} alternative davvero comparabili`);
-  if(r.competition==='ALTA'||r.competition==='ALTISSIMA')why.push(`concorrenza ${r.competition.toLowerCase()}`);if(!aff.ok)why.push('budget futuro a rischio');if(current>r.fair)why.push(`${current-r.fair} cr. sopra il tuo giusto`);const impactMatrix=teamImpactMatrix(p),topOpponentImpact=impactMatrix.find(x=>x.owner!=='me'),myImpact=impactMatrix.find(x=>x.owner==='me');
+  if(r.competition==='ALTA'||r.competition==='ALTISSIMA')why.push(`concorrenza ${r.competition.toLowerCase()}`);if(r.uncappedMarketValue>r.anchorCeiling.ceiling)why.push(`tetto fascia ${Math.round(r.anchorCeiling.ceiling)} finché vendite comparabili non lo rialzano`);if(r.marketFair>r.personalCap)why.push(`mercato ${r.marketFair}, ma per te max ${r.personalCap}`);if(!aff.ok)why.push('budget futuro a rischio');if(current>r.fair)why.push(`${current-r.fair} cr. sopra il tuo giusto`);const impactMatrix=teamImpactMatrix(p),topOpponentImpact=impactMatrix.find(x=>x.owner!=='me'),myImpact=impactMatrix.find(x=>x.owner==='me');
   if(topOpponentImpact&&topOpponentImpact.improvement>=12)why.push(`${topOpponentImpact.name} migliorerebbe +${topOpponentImpact.improvement.toFixed(1)}%`);
   if(myImpact&&myImpact.improvement>=12&&why.length<3)why.push(`impatto sulla tua rosa +${myImpact.improvement.toFixed(1)}%`);
   if(!why.length)why.push('prezzo, rosa e mercato coerenti');
@@ -3263,7 +3375,12 @@ function strategyPlanHTML(){
   const p=adaptiveStrategyPlan(),s=p.effective,note=p.notes.length?p.notes.join(' '):'Piano coerente col mercato attuale: nessuna riallocazione straordinaria.';
   return `<div class="adaptive-strategy"><b>🧠 Strategia adattiva · ${esc(strategyLabel())}</b><br>${esc(note)}<div class="adaptive-share-grid">${ROLE_ORDER.map(r=>`<span>${r.toUpperCase()}<strong>${Math.round(s[r]*100)}%</strong></span>`).join('')}</div></div>`;
 }
-function affordabilityFor(p,price){const remainingAfter=budgetRemaining()-price,slotsAfter=Math.max(0,TOTAL_SLOTS-ownerPicks('me').length-1),minFloor=slotsAfter,strategic=strategicReserve(p.role,p.role,price),required=Math.max(minFloor,strategic),margin=remainingAfter-required;return {remainingAfter,slotsAfter,required,margin,ok:margin>=0};}
+function affordabilityFor(p,price){
+  const economic=personalEconomicCeiling(p),remainingAfter=budgetRemaining()-price,slotsAfter=Math.max(0,TOTAL_SLOTS-ownerPicks('me').length-1);
+  const required=Math.max(slotsAfter,budgetRemaining()-economic.cap);
+  const margin=economic.cap-price;
+  return {remainingAfter,slotsAfter,required,margin,ok:price<=economic.cap,economicCap:economic.cap,economic};
+}
 function projectionFor(p,price){
   const a=affordabilityFor(p,price),missing=Math.max(0,a.slotsAfter),flex=Math.max(0,a.remainingAfter-missing),quality=clamp(50+(flex/Math.max(1,ROSTER.budget))*70+(playerPercentile(p)-.5)*18,0,100);
   return {safe:Math.round(clamp(quality-8,0,100)),expected:Math.round(quality),aggressive:Math.round(clamp(quality+7,0,100))};
@@ -3455,7 +3572,7 @@ function renderLivePlayerCard(p){
 
     <details class="pro-analysis-details"><summary>Analisi avanzata <span>mercato · dati tecnici · scenari · piano B</span></summary><div class="pro-analysis-body">
       ${technicalInsightHTML(p)}
-      <div class="live-insight-grid"><div class="insight-card"><div class="ik">Mercato reale</div><div class="iv">${r.predictedMultiplier.toFixed(2)}×</div><div class="is">Comparabili ${r.market.multiplier.toFixed(2)}× · fascia ${r.tierMarket.multiplier.toFixed(2)}× · ruolo ${r.roleInfl.toFixed(2)}× · stanza ${r.roomRebalance.factor.toFixed(2)}×.</div><div class="market-tier-strip"><span>${tierLabel(r.tier)} ${r.tierMarket.n} prezzi</span><span>${r.tierScarcity.exact} stessa fascia liberi</span></div></div><div class="insight-card"><div class="ik">Budget protetto</div><div class="iv">${r.reserveOther}</div><div class="is">Crediti riservati agli altri slot.</div></div><div class="insight-card"><div class="ik">Slot ruolo</div><div class="iv">${r.roleLeft}</div><div class="is">Ancora da completare nella tua rosa.</div></div><div class="insight-card"><div class="ik">Fase asta</div><div class="iv">${Math.round(r.progress*100)}%</div><div class="is">Ruolo ${Math.round(r.roleProgress*100)}% completato nella stanza.</div></div></div>
+      <div class="live-insight-grid"><div class="insight-card"><div class="ik">Mercato reale</div><div class="iv">${r.predictedMultiplier.toFixed(2)}×</div><div class="is">Comparabili ${r.market.multiplier.toFixed(2)}× · fascia ${r.tierMarket.multiplier.toFixed(2)}× · ruolo ${r.roleInfl.toFixed(2)}× · stanza ${r.roomRebalance.factor.toFixed(2)}×.</div><div class="market-tier-strip"><span>Tetto fascia ${Math.round(r.anchorCeiling.ceiling)} cr.</span><span>${r.anchorCeiling.raised?'rialzato da vendite reali':'ancora storico'}</span><span>${r.anchorCeiling.above||0} sopra anchor</span></div></div><div class="insight-card"><div class="ik">Budget protetto</div><div class="iv">${r.reserveOther}</div><div class="is">Crediti riservati agli altri slot.</div></div><div class="insight-card"><div class="ik">Slot ruolo</div><div class="iv">${r.roleLeft}</div><div class="is">Ancora da completare nella tua rosa.</div></div><div class="insight-card"><div class="ik">Fase asta</div><div class="iv">${Math.round(r.progress*100)}%</div><div class="is">Ruolo ${Math.round(r.roleProgress*100)}% completato nella stanza.</div></div></div>
       <div class="projection-grid"><div class="projection-box"><b>${proj.safe}/100</b><span>Rosa prudente</span></div><div class="projection-box"><b>${proj.expected}/100</b><span>Rosa attesa</span></div><div class="projection-box"><b>${proj.aggressive}/100</b><span>Scenario aggressivo</span></div></div>
       ${alts.length?`<div class="live-risk"><b>Piano B:</b><div class="alt-grid">${alts.map(o=>`<button class="alt-btn" data-alt-key="${encodeURIComponent(playerKey(o.p))}"><b>${esc(o.p.name)}</b><span>giusto ${o.r.fair} · stop ${o.r.stop}</span></button>`).join('')}</div></div>`:''}
     </div></details>
