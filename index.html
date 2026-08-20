@@ -1584,7 +1584,7 @@ button,select,input{touch-action:manipulation}
 button,select,input{touch-action:manipulation}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition-duration:.01ms!important}}
 </style>
-</head>
+<style id="uncalled-v51-style">.uncalled-phase-badge{display:inline-flex;vertical-align:middle;margin-left:7px;padding:3px 7px;border-radius:999px;font-size:8px;letter-spacing:.08em;font-weight:900}.uncalled-phase-badge.pre{background:#fff1c9;color:#775500;border:1px solid #e7c75d}.uncalled-phase-badge.learn{background:#e8f0f6;color:#265b78;border:1px solid #a9c4d5}.uncalled-phase-badge.live{background:#e3f1e8;color:#166044;border:1px solid #a9cfb7}</style></head>
 <body>
 
 <header class="top">
@@ -1922,10 +1922,10 @@ function loadRoster(){
   return normalizeRoster({ budget:500, leagueSize:10, picks:{} });
 }
 let ROSTER = loadRoster();
-let ENGINE_REV=9201;
+let ENGINE_REV=9301;
 const REC_CACHE=new Map();
 let listoneController=null;
-function invalidateEngine(){ ENGINE_REV++; REC_CACHE.clear(); if(typeof TEAM_IMPACT_CACHE!=="undefined")TEAM_IMPACT_CACHE.clear();if(typeof ECONOMIC_PLAN_CACHE!=="undefined")ECONOMIC_PLAN_CACHE.clear();if(typeof OPP_COMP_CACHE!=="undefined")OPP_COMP_CACHE.clear();if(typeof LAZY_PANEL_CACHE!=="undefined")LAZY_PANEL_CACHE.clear();if(typeof TARGET_ALT_CACHE!=="undefined")TARGET_ALT_CACHE.clear();if(typeof ALTERNATIVES_CACHE!=="undefined")ALTERNATIVES_CACHE.clear();if(typeof WAIT_RISK_CACHE!=="undefined")WAIT_RISK_CACHE.clear();}
+function invalidateEngine(){ ENGINE_REV++; REC_CACHE.clear(); if(typeof TEAM_IMPACT_CACHE!=="undefined")TEAM_IMPACT_CACHE.clear();if(typeof ECONOMIC_PLAN_CACHE!=="undefined")ECONOMIC_PLAN_CACHE.clear();if(typeof OPP_COMP_CACHE!=="undefined")OPP_COMP_CACHE.clear();if(typeof LAZY_PANEL_CACHE!=="undefined")LAZY_PANEL_CACHE.clear();if(typeof TARGET_ALT_CACHE!=="undefined")TARGET_ALT_CACHE.clear();if(typeof ALTERNATIVES_CACHE!=="undefined")ALTERNATIVES_CACHE.clear();if(typeof WAIT_RISK_CACHE!=="undefined")WAIT_RISK_CACHE.clear();if(typeof UNCALLED_METRIC_CACHE!=="undefined")UNCALLED_METRIC_CACHE.clear();}
 function saveRoster(){
   invalidateEngine();
   try{
@@ -3702,46 +3702,143 @@ function unassignedPlayers(role='all'){
   return DATA.map(p=>({key:playerKey(p),p}))
     .filter(o=>!ROSTER.picks[o.key] && (role==='all'||o.p.role===role));
 }
-function uncalledFitScore(p){
-  const overall=skippedOverallScore(p),counts=roleCounts('me'),missing=Math.max(0,ROLE_TARGETS[p.role]-counts[p.role]),need=missing>0?clamp(.45+.55*(missing/Math.max(1,ROLE_TARGETS[p.role])),0,1):0;
-  const r=recommendationFor(p),slots=Math.max(1,TOTAL_SLOTS-ownerPicks('me').length),avgBudget=budgetRemaining()/slots,affordability=clamp(avgBudget/Math.max(1,r.fair),0,1),replacement=replacementInfo(p),repl=clamp(replacement.gap/18,0,1);
-  const plan=adaptiveStrategyPlan(),slot=rosterSlotProfile(p.role),tier=qualityTier(p);let strategy=clamp(.45+(plan.effective[p.role]-plan.base[p.role])*2.8,0,1);
-  if(slot.premiumMissing>0&&['elite','top'].includes(tier))strategy=clamp(strategy+.30,0,1);if(ROSTER.strategyMode==='attack'&&p.role==='a')strategy=clamp(strategy+.22,0,1);if(ROSTER.strategyMode==='midfield'&&p.role==='c')strategy=clamp(strategy+.22,0,1);if(ROSTER.strategyMode==='value')strategy=clamp(strategy+(r.fair<=avgBudget?.25:-.12),0,1);
-  const wait=waitRiskInfo(p),urgency=wait.score/100,score=missing<=0&&ownerPicks('me').length>=TOTAL_SLOTS?overall.score:clamp(.34*overall.score+100*(.24*need+.11*affordability+.08*repl+.17*strategy+.06*urgency),0,100);
-  return {score,overall,missing,need,affordability,replacement,avgBudget,strategy,wait,r};
+
+const UNCALLED_METRIC_CACHE=new Map();
+
+function uncalledPhase(){
+  const sold=soldEntries().length;
+  if(sold===0)return {key:'pre',label:'PRE-ASTA',weight:0};
+  if(sold<8)return {key:'learn',label:'APPRENDIMENTO',weight:clamp(sold/8,0,1)};
+  return {key:'live',label:'LIVE',weight:1};
 }
 
-function uncalledViewScore(p,fit){if(uncalledView==='value')return clamp(fit.overall.score*.60+(100*fit.affordability)*.40,0,100);if(uncalledView==='cliff'){const d=dropoffInfo(p);return clamp(fit.overall.score*.55+d.score*.45,0,100);}return fit.score;}
+function uncalledOpeningPrice(p){
+  const base=historicalAuctionBaseline(p);
+  const ceiling=liveRoleTierCeiling(p)?.ceiling??Infinity;
+  return Math.max(1,Math.min(base,ceiling));
+}
+
+function uncalledPriceEstimate(p){
+  const phase=uncalledPhase(),opening=uncalledOpeningPrice(p);
+  if(phase.key==='pre')return {fair:Math.max(1,Math.round(opening)),stop:Math.max(1,Math.round(opening*1.08)),source:'baseline'};
+  const r=recommendationFor(p),w=phase.key==='learn'?phase.weight*.65:1;
+  const fair=opening*(1-w)+r.marketFair*w,stop=(opening*1.08)*(1-w)+r.marketStop*w;
+  return {fair:Math.max(1,Math.round(fair)),stop:Math.max(1,Math.round(Math.max(fair,stop))),source:phase.key};
+}
+
+function uncalledRoleValuePercentile(p){
+  const ck=`${ENGINE_REV}|value|${p.role}`;
+  let rows=UNCALLED_METRIC_CACHE.get(ck);
+  if(!rows){
+    rows=unassignedPlayers(p.role).map(o=>{
+      const q=skippedOverallScore(o.p).score;
+      const price=Math.max(1,uncalledOpeningPrice(o.p));
+      const efficiency=q/Math.pow(price,.42);
+      return {key:o.key,efficiency};
+    }).sort((a,b)=>a.efficiency-b.efficiency);
+    UNCALLED_METRIC_CACHE.set(ck,rows);
+  }
+  const idx=rows.findIndex(x=>x.key===playerKey(p));
+  return idx<0?.5:(idx+1)/Math.max(1,rows.length);
+}
+
+function uncalledCliffInfo(p){
+  const ck=`${ENGINE_REV}|cliff|${p.role}`;
+  let free=UNCALLED_METRIC_CACHE.get(ck);
+  if(!free){
+    free=unassignedPlayers(p.role).map(o=>({p:o.p,s:rawPlayerScore(o.p)})).sort((a,b)=>b.s-a.s);
+    UNCALLED_METRIC_CACHE.set(ck,free);
+  }
+  const idx=free.findIndex(x=>playerKey(x.p)===playerKey(p));
+  if(idx<0)return {gap:0,shelfGap:0,score:0,next:null};
+  const cur=free[idx].s,next=free[idx+1],n2=free[idx+2],n3=free[idx+3];
+  if(!next)return {gap:100,shelfGap:100,score:100,next:null};
+  const localGap=Math.max(0,(cur-next.s)/Math.max(1,cur)*100);
+  const future=[next,n2,n3].filter(Boolean).map(x=>x.s);
+  const avgNext=future.reduce((a,b)=>a+b,0)/Math.max(1,future.length);
+  const shelfGap=Math.max(0,(cur-avgNext)/Math.max(1,cur)*100);
+  const quality=playerPercentile(p);
+  const score=clamp((localGap*6.2+shelfGap*3.1)*(0.70+quality*.30),0,100);
+  return {gap:localGap,shelfGap,score,next:next.p};
+}
+
+function uncalledStrategyWeight(role){
+  const mode=ROSTER.strategyMode||'balanced';
+  if(mode==='attack')return ({p:.06,d:.14,c:.25,a:.55})[role];
+  if(mode==='midfield')return ({p:.07,d:.15,c:.40,a:.38})[role];
+  if(mode==='value')return ({p:.09,d:.20,c:.31,a:.40})[role];
+  return ({p:.08,d:.17,c:.30,a:.45})[role];
+}
+
+
+function uncalledFitScore(p){
+  const overall=skippedOverallScore(p),counts=roleCounts('me'),missing=Math.max(0,ROLE_TARGETS[p.role]-counts[p.role]);
+  const need=missing>0?clamp(.35+.65*(missing/Math.max(1,ROLE_TARGETS[p.role])),0,1):0;
+  const price=uncalledPriceEstimate(p),slots=Math.max(1,TOTAL_SLOTS-ownerPicks('me').length),avgBudget=budgetRemaining()/slots;
+  const affordability=clamp(avgBudget/Math.max(1,price.fair),0,1),replacement=replacementInfo(p),repl=clamp(replacement.gap/18,0,1);
+  const phase=uncalledPhase(),tier=qualityTier(p),strategyShare=uncalledStrategyWeight(p.role),premium=['elite','top'].includes(tier)?1:tier==='mid'?.45:.10;
+  const wait=phase.key==='pre'?{score:0,level:'BASSO',alternatives:{similar:0},serious:0}:waitRiskInfo(p);
+  let score;
+  if(phase.key==='pre'){
+    const rarity=uncalledCliffInfo(p).score/100;
+    score=clamp(overall.score*.60+100*(strategyShare*.13+premium*.11+rarity*.09+need*.07),0,100);
+  }else{
+    const urgency=wait.score/100;
+    score=clamp(overall.score*.42+100*(need*.16+affordability*.07+repl*.08+strategyShare*.12+premium*.08+urgency*.07),0,100);
+  }
+  return {score,overall,missing,need,affordability,replacement,avgBudget,strategy:strategyShare,wait,price,phase};
+}
+
+function uncalledViewScore(p,fit){
+  if(uncalledView==='value'){
+    const roleValue=uncalledRoleValuePercentile(p);
+    return clamp(fit.overall.score*.50+roleValue*100*.42+fit.strategy*100*.08,0,100);
+  }
+  if(uncalledView==='cliff'){
+    const d=uncalledCliffInfo(p);
+    return clamp(fit.overall.score*.48+d.score*.44+fit.strategy*100*.08,0,100);
+  }
+  return fit.score;
+}
 function uncalledReasonChips(p,fit){
-  const t=technicalInfo(p),reasons=[];
-  if(fit.missing>0)reasons.push(`Ti mancano ${fit.missing} ${ROLE_NAMES[p.role].toLowerCase()}`);
+  const t=technicalInfo(p),reasons=[],phase=fit.phase||uncalledPhase();
+  if(phase.key==='pre'&&['elite','top'].includes(qualityTier(p)))reasons.push('Priorità pre-asta');
+  else if(fit.missing>0)reasons.push(`Ti mancano ${fit.missing} ${ROLE_NAMES[p.role].toLowerCase()}`);
   if(fit.overall.pct>=.85)reasons.push(`TOP ${Math.max(1,Math.round((1-fit.overall.pct)*100))}% ruolo`);
-  if(t&&Number(t.score)>=75)reasons.push(`PI ${Math.round(t.score)}/100`);
+  if(uncalledView==='value'&&uncalledRoleValuePercentile(p)>=.88)reasons.push('Value alto nel ruolo');
+  if(uncalledView==='cliff'){
+    const d=uncalledCliffInfo(p);if(d.score>=45)reasons.push(`Cliff ${d.gap.toFixed(0)}%${d.next?' → '+d.next.name:''}`);
+  }else if(t&&Number(t.score)>=75)reasons.push(`PI ${Math.round(t.score)}/100`);
   if(fit.overall.bonus>=.80)reasons.push('Bonus sopra media');
   if(fit.overall.fm>=.80)reasons.push('Fantamedia alta');
-  if(fit.replacement.gap>=8)reasons.push(`Replacement +${fit.replacement.gap.toFixed(0)}%`);
-  if(fit.affordability>=.9)reasons.push('Sostenibile col budget');
   if(isSkipped(p))reasons.push('Già skippato');
   return reasons.slice(0,3);
 }
 
 function uncalledCheapCandidates(role='all'){
   const rows=unassignedPlayers(role);
-  const cheap=o=>rawPlayerScore(o.p)+(playerPercentile(o.p)*28)+(Number(o.p.fvmC)||0)*.06;
-  if(role!=='all')return rows.sort((a,b)=>cheap(b)-cheap(a)).slice(0,36);
-  const out=[];
-  for(const r of ROLE_ORDER){
-    out.push(...rows.filter(o=>o.p.role===r).sort((a,b)=>cheap(b)-cheap(a)).slice(0,14));
-  }
-  return out;
+  const cheap=o=>{const q=rawPlayerScore(o.p),pct=playerPercentile(o.p),price=uncalledOpeningPrice(o.p);if(uncalledView==='value')return q*.62+pct*32+(q/Math.pow(Math.max(1,price),.42))*12;if(uncalledView==='cliff')return q*.72+uncalledCliffInfo(o.p).score*.28;return q+pct*28+(Number(o.p.fvmC)||0)*.06;};
+  if(role!=='all')return rows.sort((a,b)=>cheap(b)-cheap(a)).slice(0,56);
+  const out=[];for(const r of ROLE_ORDER)out.push(...rows.filter(o=>o.p.role===r).sort((a,b)=>cheap(b)-cheap(a)).slice(0,30));return out;
 }
 
 function uncalledRankingHTML(mode='fit',limit=12,role=uncalledRole){
-  const rows=uncalledCheapCandidates(role).map(o=>{const fit=uncalledFitScore(o.p),overall=fit.overall;return {...o,fit,overall,score:mode==='fit'?uncalledViewScore(o.p,fit):overall.score};})
-    .filter(o=>mode!=='fit'||o.fit.missing>0||ownerPicks('me').length>=TOTAL_SLOTS)
-    .sort((a,b)=>b.score-a.score||b.overall.score-a.overall.score).slice(0,limit);
-  if(!rows.length)return '<div class="skip-empty">Nessun giocatore libero compatibile con gli slot rimasti.</div>';
-  return `<div class="skip-ranking">${rows.map((o,i)=>{const p=o.p,t=technicalInfo(p),r=o.fit.r,reasons=uncalledReasonChips(p,o.fit);return `<div class="skip-rank-row"><div class="skip-rank-num">${i+1}</div><div class="skip-rank-main"><div class="skip-rank-name">${esc(p.name)} <span class="role-badge role-${p.role}" style="width:20px;height:20px;font-size:9px;">${p.role.toUpperCase()}</span> ${isSkipped(p)?'<small>⏭</small>':''}</div><div class="skip-rank-meta">${esc(CAL.teamNames[p.team]||p.team)} · ${tierLabel(qualityTier(p))} · ${t?`PI ${Math.round(t.score||50)}/100`:'PI N/D'}</div><div class="skip-reasons">${reasons.map(x=>`<span>${esc(x)}</span>`).join('')}</div></div><div class="skip-rank-side"><b>${Math.round(o.score)}</b><span>${mode==='fit'?'FIT':'OVERALL'}</span><small>giusto ${r.fair} · stop ${r.stop}</small><button class="skip-call-btn" data-uncalled-call="${encodeURIComponent(playerKey(p))}">Analizza</button></div></div>`;}).join('')}</div>`;
+  let candidates=uncalledCheapCandidates(role).map(o=>{
+    const fit=uncalledFitScore(o.p),overall=fit.overall,rawScore=mode==='fit'?uncalledViewScore(o.p,fit):overall.score;
+    return {...o,fit,overall,rawScore,score:rawScore};
+  }).filter(o=>mode!=='fit'||o.fit.missing>0||ownerPicks('me').length>=TOTAL_SLOTS);
+
+  if(role==='all'&&mode==='fit'){
+    const byRole={p:[],d:[],c:[],a:[]};candidates.forEach(o=>byRole[o.p.role].push(o));
+    Object.values(byRole).forEach(arr=>{arr.sort((a,b)=>a.rawScore-b.rawScore);arr.forEach((o,i)=>{const rp=(i+1)/Math.max(1,arr.length);o.score=o.rawScore*.58+rp*100*.42;});});
+    candidates.sort((a,b)=>b.score-a.score||b.overall.score-a.overall.score);
+    const selected=[],roleUsed={p:0,d:0,c:0,a:0},cap=limit>=8?4:Math.ceil(limit/2);
+    for(const o of candidates){if(roleUsed[o.p.role]>=cap)continue;selected.push(o);roleUsed[o.p.role]++;if(selected.length>=limit)break;}
+    candidates=selected;
+  }else candidates=candidates.sort((a,b)=>b.score-a.score||b.overall.score-a.overall.score).slice(0,limit);
+
+  const rows=candidates.slice(0,limit);if(!rows.length)return '<div class="skip-empty">Nessun giocatore libero compatibile con gli slot rimasti.</div>';
+  return `<div class="skip-ranking">${rows.map((o,i)=>{const p=o.p,t=technicalInfo(p),price=o.fit.price,reasons=uncalledReasonChips(p,o.fit),label=mode==='fit'?(uncalledView==='value'?'VALUE':uncalledView==='cliff'?'CLIFF':'FIT'):'OVERALL';return `<div class="skip-rank-row"><div class="skip-rank-num">${i+1}</div><div class="skip-rank-main"><div class="skip-rank-name">${esc(p.name)} <span class="role-badge role-${p.role}" style="width:20px;height:20px;font-size:9px;">${p.role.toUpperCase()}</span> ${isSkipped(p)?'<small>⏭</small>':''}</div><div class="skip-rank-meta">${esc(CAL.teamNames[p.team]||p.team)} · ${tierLabel(qualityTier(p))} · ${t?`PI ${Math.round(t.score||50)}/100`:'PI N/D'}</div><div class="skip-reasons">${reasons.map(x=>`<span>${esc(x)}</span>`).join('')}</div></div><div class="skip-rank-side"><b>${Math.round(o.score)}</b><span>${label}</span><small>${o.fit.phase.key==='pre'?'stima iniziale':'giusto'} ${price.fair} · stop ${price.stop}</small><button class="skip-call-btn" data-uncalled-call="${encodeURIComponent(playerKey(p))}">Analizza</button></div></div>`;}).join('')}</div>`;
 }
 function uncalledPoolHTML(role=uncalledRole){
   const rows=unassignedPlayers(role).map(o=>({...o,score:rawPlayerScore(o.p)}))
@@ -3757,25 +3854,10 @@ function uncalledPoolHTML(role=uncalledRole){
   }).join('')}</div>`;
 }
 function uncalledIntelligenceHTML(){
-  const total=unassignedPlayers('all').length,n=unassignedPlayers(uncalledRole).length;
-  const roleCount=r=>unassignedPlayers(r).length;
-  const roleLabel=uncalledRole==='all'?'Tutti i ruoli':ROLE_NAMES[uncalledRole];
-  return `<section class="skip-intelligence uncalled-intelligence">
-    <div class="skip-head"><div><h2>📋 Non chiamati</h2><p>${total} giocatori del listone non sono assegnati a nessuna rosa. Filtra per ruolo per leggere subito ciò che resta sul tavolo.</p></div><div class="skip-count">${n}</div></div>
-    <div class="uncalled-role-tabs" role="tablist" aria-label="Filtra non chiamati per ruolo">
-      <button type="button" data-uncalled-role="all" class="${uncalledRole==='all'?'active':''}">Tutti <span>${total}</span></button>
-      <button type="button" data-uncalled-role="p" class="${uncalledRole==='p'?'active':''}">P 🧤 <span>${roleCount('p')}</span></button>
-      <button type="button" data-uncalled-role="d" class="${uncalledRole==='d'?'active':''}">D 🛡️ <span>${roleCount('d')}</span></button>
-      <button type="button" data-uncalled-role="c" class="${uncalledRole==='c'?'active':''}">C ⚙️ <span>${roleCount('c')}</span></button>
-      <button type="button" data-uncalled-role="a" class="${uncalledRole==='a'?'active':''}">A 🎯 <span>${roleCount('a')}</span></button>
-    </div>
-    <div class="uncalled-view-tabs"><button type="button" data-uncalled-view="fit" class="${uncalledView==='fit'?'active':''}">Per la mia rosa</button><button type="button" data-uncalled-view="value" class="${uncalledView==='value'?'active':''}">Qualità/prezzo</button><button type="button" data-uncalled-view="cliff" class="${uncalledView==='cliff'?'active':''}">Prima del cliff</button></div><div class="uncalled-filter-title"><b>${roleLabel}</b><span>${n} disponibili</span></div>
-    <div class="skip-cols">
-      <div><h3>🎯 Migliori per la mia rosa</h3><p class="skip-helper">Bisogni per ruolo, budget residuo, replacement value, strategia e qualità fantasy.</p>${uncalledRankingHTML('fit',12,uncalledRole)}</div>
-      <div><h3>🏆 Migliori liberi in assoluto</h3><p class="skip-helper">Valore complessivo del profilo e contesto dell'asta, indipendentemente dai tuoi slot.</p>${uncalledRankingHTML('overall',12,uncalledRole)}</div>
-    </div>
-    <details class="skip-pool-details" data-uncalled-pool-role="${uncalledRole}"><summary>Vedi tutti i ${n} ${uncalledRole==='all'?'giocatori non assegnati':ROLE_NAMES[uncalledRole].toLowerCase()+' non assegnati'}</summary><div class="uncalled-pool-lazy"><div class="lazy-panel-placeholder">Apri per caricare l’elenco completo.</div></div></details>
-  </section>`;
+  const total=unassignedPlayers('all').length,n=unassignedPlayers(uncalledRole).length,phase=uncalledPhase();
+  const roleCount=r=>unassignedPlayers(r).length,roleLabel=uncalledRole==='all'?'Tutti i ruoli':ROLE_NAMES[uncalledRole];
+  const viewMeta=uncalledView==='value'?{title:'💎 Migliori qualità/prezzo',helper:'Convenienza confrontata dentro lo stesso ruolo: un ruolo più economico non viene premiato automaticamente.'}:uncalledView==='cliff'?{title:'⛰️ Prima del cliff',helper:'Profili dopo i quali la qualità delle alternative dello stesso ruolo scende sensibilmente. Il prezzo pesa molto meno.'}:{title:'🎯 Migliori per la mia rosa',helper:phase.key==='pre'?'Pre-asta: qualità, fascia, rarità e strategia. Il mercato reale entrerà progressivamente dopo le prime vendite.':'Bisogni per ruolo, budget residuo, replacement value, strategia e qualità fantasy.'};
+  return `<section class="skip-intelligence uncalled-intelligence"><div class="skip-head"><div><h2>📋 Non chiamati <span class="uncalled-phase-badge ${phase.key}">${phase.label}</span></h2><p>${total} giocatori del listone non sono assegnati a nessuna rosa. ${phase.key==='pre'?'Con 0 vendite il ranking usa una baseline pre-asta e non finge di conoscere il mercato della stanza.':'Il peso dei prezzi reali aumenta con le vendite osservate.'}</p></div><div class="skip-count">${n}</div></div><div class="uncalled-role-tabs" role="tablist" aria-label="Filtra non chiamati per ruolo"><button type="button" data-uncalled-role="all" class="${uncalledRole==='all'?'active':''}">Tutti <span>${total}</span></button><button type="button" data-uncalled-role="p" class="${uncalledRole==='p'?'active':''}">P 🧤 <span>${roleCount('p')}</span></button><button type="button" data-uncalled-role="d" class="${uncalledRole==='d'?'active':''}">D 🛡️ <span>${roleCount('d')}</span></button><button type="button" data-uncalled-role="c" class="${uncalledRole==='c'?'active':''}">C ⚙️ <span>${roleCount('c')}</span></button><button type="button" data-uncalled-role="a" class="${uncalledRole==='a'?'active':''}">A 🎯 <span>${roleCount('a')}</span></button></div><div class="uncalled-view-tabs"><button type="button" data-uncalled-view="fit" class="${uncalledView==='fit'?'active':''}">Per la mia rosa</button><button type="button" data-uncalled-view="value" class="${uncalledView==='value'?'active':''}">Qualità/prezzo</button><button type="button" data-uncalled-view="cliff" class="${uncalledView==='cliff'?'active':''}">Prima del cliff</button></div><div class="uncalled-filter-title"><b>${roleLabel}</b><span>${n} disponibili</span></div><div class="skip-cols"><div><h3>${viewMeta.title}</h3><p class="skip-helper">${viewMeta.helper}</p>${uncalledRankingHTML('fit',12,uncalledRole)}</div><div><h3>🏆 Migliori liberi in assoluto</h3><p class="skip-helper">Qualità complessiva del profilo. Questa colonna resta neutra rispetto alla tua strategia.</p>${uncalledRankingHTML('overall',12,uncalledRole)}</div></div><details class="skip-pool-details" data-uncalled-pool-role="${uncalledRole}"><summary>Vedi tutti i ${n} ${uncalledRole==='all'?'giocatori non assegnati':ROLE_NAMES[uncalledRole].toLowerCase()+' non assegnati'}</summary><div class="uncalled-pool-lazy"><div class="lazy-panel-placeholder">Apri per caricare l’elenco completo.</div></div></details></section>`;
 }
 function teamOptions(owner){return ROSTER.teams.map(t=>`<option value="${t.id}" ${t.id===owner?'selected':''}>${esc(t.name)}</option>`).join('');}
 function teamNeedsHTML(t){const c=roleCounts(t.id);return `<div class="need-pills">${ROLE_ORDER.map(r=>{const n=ROLE_TARGETS[r]-c[r];return `<span class="need-pill ${n>0?'hot':''}">${r.toUpperCase()} ${Math.max(0,n)}</span>`}).join('')}</div>`;}
@@ -4072,7 +4154,7 @@ function renderAstaTab(){
   const body=document.getElementById('asta-body'); body.classList.toggle('fast-mode',ROSTER.fastMode);
   const room=roomRebalanceSignal(),marketGlobal=marketInflation(),soldN=soldEntries().length;
   body.innerHTML=`
-    <div class="live-topbar pro-topbar"><div><h2 style="margin:0;">Asta Intelligence · v5 FIXED</h2><div class="fast-note">La decisione a sinistra. Strategia, budget e rosa sempre sotto controllo a destra.</div></div><div class="pro-room-status"><span>${soldN} venduti</span><span>${skippedPlayers().length} skip</span><span class="${room.active?'hot':''}">${room.active?room.factor.toFixed(2):marketGlobal.toFixed(2)}× stanza</span></div><div style="display:flex;gap:6px"><button id="formation-open-btn" class="formation-open-btn">⚽ Formazione</button><button id="ultra-rapid-toggle" class="ultra-rapid-toggle ${ROSTER.ultraRapid?'active':''}">🚀 Ultra Rapida</button><button id="fast-mode-btn" class="fast-toggle ${ROSTER.fastMode?'active':''}">⚡ ${ROSTER.fastMode?'Completa':'Rapida'}</button></div></div>
+    <div class="live-topbar pro-topbar"><div><h2 style="margin:0;">Asta Intelligence · v5.1 FIXED</h2><div class="fast-note">La decisione a sinistra. Strategia, budget e rosa sempre sotto controllo a destra.</div></div><div class="pro-room-status"><span>${soldN} venduti</span><span>${skippedPlayers().length} skip</span><span class="${room.active?'hot':''}">${room.active?room.factor.toFixed(2):marketGlobal.toFixed(2)}× stanza</span></div><div style="display:flex;gap:6px"><button id="formation-open-btn" class="formation-open-btn">⚽ Formazione</button><button id="ultra-rapid-toggle" class="ultra-rapid-toggle ${ROSTER.ultraRapid?'active':''}">🚀 Ultra Rapida</button><button id="fast-mode-btn" class="fast-toggle ${ROSTER.fastMode?'active':''}">⚡ ${ROSTER.fastMode?'Completa':'Rapida'}</button></div></div>
     ${formationModalHTML()}
 
     <section class="setup-station control-setup">
