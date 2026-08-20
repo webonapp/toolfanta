@@ -1762,25 +1762,49 @@ function normalizeRoster(r){
   const parsedBudget=Number(r.budget);
   r.budget = Number.isFinite(parsedBudget) && parsedBudget>0 ? Math.round(parsedBudget) : 500;
   r.leagueSize = [8,10,12].includes(Number(r.leagueSize)) ? Number(r.leagueSize) : 10;
+
   const incomingTeams=Array.isArray(r.teams) ? r.teams : [];
   const namesById=new Map(incomingTeams.filter(t=>t&&t.id).map(t=>[String(t.id),String(t.name||'').trim()]));
   r.teams = defaultTeams(r.leagueSize).map(t=>({id:t.id,name:(namesById.get(t.id)||t.name).replace(/\s+/g,' ').slice(0,32)}));
   const validOwners=new Set(r.teams.map(t=>t.id));
+
   r.picks = (r.picks && typeof r.picks==='object' && !Array.isArray(r.picks)) ? r.picks : {};
+
+  // Backward compatibility: a short-lived build used "skipped" instead of "skips".
+  if((!r.skips || typeof r.skips!=='object') && r.skipped && typeof r.skipped==='object') r.skips=r.skipped;
   r.skips = (r.skips && typeof r.skips==='object' && !Array.isArray(r.skips)) ? r.skips : {};
+  delete r.skipped;
+
   r.targets = (r.targets && typeof r.targets==='object' && !Array.isArray(r.targets)) ? r.targets : {};
-  Object.entries(r.targets).forEach(([k,x])=>{ if(!x || typeof x!=='object'){ delete r.targets[k]; return; } x.priority=['high','target','watch'].includes(x.priority)?x.priority:'target'; });
+  Object.entries(r.targets).forEach(([k,x])=>{
+    if(!x || typeof x!=='object'){ delete r.targets[k]; return; }
+    x.priority=['high','target','watch'].includes(x.priority)?x.priority:'target';
+  });
+
+  r.targetPriority = (r.targetPriority && typeof r.targetPriority==='object' && !Array.isArray(r.targetPriority)) ? r.targetPriority : {};
+  Object.entries(r.targetPriority).forEach(([k,v])=>{
+    if(!['A','B','S'].includes(v)) r.targetPriority[k]='B';
+  });
+
   Object.entries(r.skips).forEach(([k,x])=>{
     if(!x || typeof x!=='object'){ delete r.skips[k]; return; }
     x.name=String(x.name||''); x.team=String(x.team||''); x.role=String(x.role||'');
     x.skippedAt=Number(x.skippedAt)||Date.now(); x.skipSeq=Number(x.skipSeq)||0;
   });
+
   r.strategyMode = ['balanced','attack','midfield','value'].includes(r.strategyMode) ? r.strategyMode : 'balanced';
   r.fastMode = !!r.fastMode;
+  r.ultraRapid = !!r.ultraRapid;
   r.targetBoardOpen = r.targetBoardOpen !== false;
+  r.history = Array.isArray(r.history) ? r.history : [];
+  r.teamNameMemory = (r.teamNameMemory && typeof r.teamNameMemory==='object' && !Array.isArray(r.teamNameMemory)) ? r.teamNameMemory : {};
+  Object.keys(r.teamNameMemory).forEach(k=>{
+    r.teamNameMemory[k]=String(r.teamNameMemory[k]||'').replace(/\s+/g,' ').trim().slice(0,32);
+  });
+
   let seq=0;
-  Object.values(r.picks).forEach(x=>{
-    if(!x || typeof x!=='object') return;
+  Object.entries(r.picks).forEach(([key,x])=>{
+    if(!x || typeof x!=='object'){ delete r.picks[key]; return; }
     if(!x.owner) x.owner = x.status==='mine' ? 'me' : 't2';
     if(!validOwners.has(x.owner)) x.owner='t2';
     x.status = x.owner==='me' ? 'mine' : 'opp';
@@ -1789,6 +1813,7 @@ function normalizeRoster(r){
     seq=Math.max(seq,x.seq);
   });
   r.seq = Math.max(Number(r.seq)||0,seq);
+  r.skipSeq = Math.max(0,Number(r.skipSeq)||0);
   return r;
 }
 function rosterIntegrityIssues(r){
@@ -1835,16 +1860,9 @@ function loadRoster(){
     }catch(e){ console.warn('[ROSTER] Lettura fallita da '+key,e); }
   }
   return normalizeRoster({ budget:500, leagueSize:10, picks:{} });
-
-  ROSTER.targets=ROSTER.targets||{};
-  ROSTER.targetPriority=ROSTER.targetPriority||{};
-  ROSTER.skipped=ROSTER.skipped||{};
-  ROSTER.picks=ROSTER.picks||{};
-  ROSTER.history=Array.isArray(ROSTER.history)?ROSTER.history:[];
-  ROSTER.ultraRapid=!!ROSTER.ultraRapid;
 }
 let ROSTER = loadRoster();
-let ENGINE_REV=3001;
+let ENGINE_REV=4001;
 const REC_CACHE=new Map();
 let listoneController=null;
 function invalidateEngine(){ ENGINE_REV++; REC_CACHE.clear(); }
@@ -3383,6 +3401,13 @@ function opponentBehaviourHTML(){
 }
 function auditState(){
   const issues=[],owners=new Set(ROSTER.teams.map(t=>t.id));
+  for(const k of Object.keys(ROSTER.targetPriority||{})){
+    if(!ROSTER.targets?.[k]) issues.push({sev:'warn',title:'Target priority orfana',msg:k});
+  }
+  for(const [k,s] of Object.entries(ROSTER.skips||{})){
+    if(!DATA_BY_KEY[k]) issues.push({sev:'warn',title:'Skip fuori listone',msg:k});
+    if(ROSTER.picks?.[k]) issues.push({sev:'warn',title:'Giocatore sia assegnato sia skippato',msg:k});
+  }
   for(const [key,x] of Object.entries(ROSTER.picks||{})){
     if(!DATA_BY_KEY[key])issues.push({sev:'danger',title:'Giocatore fuori listone',msg:key});
     if(x.owner&&!owners.has(x.owner))issues.push({sev:'danger',title:'Squadra proprietaria sconosciuta',msg:`${key} → ${x.owner}`});
@@ -3590,7 +3615,7 @@ function renderLivePlayerCard(p){
   const r=recommendationFor(p),pick=getPick(p),owner=pick?.owner||'me',price=pick?.price||r.fair,threats=r.threats.filter(t=>t.score>=2).slice(0,4),alts=alternativesFor(p),aff=affordabilityFor(p,price),proj=projectionFor(p,price),compClass=r.competition==='BASSA'?'threat-low':r.competition==='MEDIA'?'threat-mid':'threat-high',confClass=r.confidence>=75?'high':r.confidence<50?'low':'';
   const factorHTML=r.factors.slice(0,4).map(f=>`<span class="factor-chip ${f.impact>0?'up':'down'}">${f.impact>0?'▲':'▼'} ${esc(f.label)} ${f.impact>0?'+':''}${Math.round(f.impact*100)}%</span>`).join('');
   const globalRoom=r.roomRebalance?.active && r.roomRebalance.factor>1.02;
-  const regime=globalRoom?`<div class="market-regime ${r.roomRebalance.factor>=1.35?'shock':''}"><b>🌡️ Stanza rivalutata ${r.roomRebalance.factor.toFixed(2)}×</b><span>${r.roomRebalance.n} prezzi sopra attese: il nuovo livello fa da pavimento a tutti i ruoli.</span></div>`:(r.market.shock?`<div class="market-regime shock"><b>⚠️ Cambio regime</b><span>I comparabili recenti stanno uscendo molto sopra il riferimento iniziale.</span></div>`:`<div class="market-regime"><b>Mercato comparabili ${r.market.multiplier.toFixed(2)}×</b><span>${r.market.n} osservazioni utili · il peso dei prezzi reali cresce con la confidenza.</span></div>`);
+  const regime=globalRoom?`<div class="market-regime ${r.roomRebalance.factor>=1.35?'shock':''}"><b>🌡️ Stanza rivalutata ${r.roomRebalance.factor.toFixed(2)}×</b><span>${r.roomRebalance.n} prezzi sopra attese: segnala tensione generale, ma ogni ruolo/fascia resta vincolato al proprio anchor.</span></div>`:(r.market.shock?`<div class="market-regime shock"><b>⚠️ Cambio regime</b><span>I comparabili recenti stanno uscendo molto sopra il riferimento iniziale.</span></div>`:`<div class="market-regime"><b>Mercato comparabili ${r.market.multiplier.toFixed(2)}×</b><span>${r.market.n} osservazioni utili · il peso dei prezzi reali cresce con la confidenza.</span></div>`);
   const repl=r.replacement.player?`${esc(r.replacement.player.name)} · gap ${r.replacement.gap.toFixed(1)}%`:'nessun sostituto equivalente';
   const deltaFair=r.fair-r.marketFair, deltaStop=r.stop-r.marketStop;
   const deltaLabel=deltaFair===0?'Allineato al mercato':deltaFair<0?`Per te −${Math.abs(deltaFair)} sul giusto`:`Per te +${deltaFair} sul giusto`;
@@ -3745,7 +3770,7 @@ function renderAstaTab(){
   const body=document.getElementById('asta-body'); body.classList.toggle('fast-mode',ROSTER.fastMode);
   const room=roomRebalanceSignal(),marketGlobal=marketInflation(),soldN=soldEntries().length;
   body.innerHTML=`
-    <div class="live-topbar pro-topbar"><div><h2 style="margin:0;">Asta Intelligence · TEST REAL</h2><div class="fast-note">La decisione a sinistra. Strategia, budget e rosa sempre sotto controllo a destra.</div></div><div class="pro-room-status"><span>${soldN} venduti</span><span>${skippedPlayers().length} skip</span><span class="${room.active?'hot':''}">${room.active?room.factor.toFixed(2):marketGlobal.toFixed(2)}× stanza</span></div><div style="display:flex;gap:6px"><button id="ultra-rapid-toggle" class="ultra-rapid-toggle ${ROSTER.ultraRapid?'active':''}">🚀 Ultra Rapida</button><button id="fast-mode-btn" class="fast-toggle ${ROSTER.fastMode?'active':''}">⚡ ${ROSTER.fastMode?'Completa':'Rapida'}</button></div></div>
+    <div class="live-topbar pro-topbar"><div><h2 style="margin:0;">Asta Intelligence · STABLE</h2><div class="fast-note">La decisione a sinistra. Strategia, budget e rosa sempre sotto controllo a destra.</div></div><div class="pro-room-status"><span>${soldN} venduti</span><span>${skippedPlayers().length} skip</span><span class="${room.active?'hot':''}">${room.active?room.factor.toFixed(2):marketGlobal.toFixed(2)}× stanza</span></div><div style="display:flex;gap:6px"><button id="ultra-rapid-toggle" class="ultra-rapid-toggle ${ROSTER.ultraRapid?'active':''}">🚀 Ultra Rapida</button><button id="fast-mode-btn" class="fast-toggle ${ROSTER.fastMode?'active':''}">⚡ ${ROSTER.fastMode?'Completa':'Rapida'}</button></div></div>
 
     <section class="setup-station control-setup">
       <div class="setup-station-head"><div><b>⚙️ Setup asta</b><span>Configurazione della stanza</span></div><small>${ROSTER.leagueSize} squadre · ${esc(strategyLabel())} · ${ROSTER.budget} cr. · piano adattivo</small></div>
@@ -3834,7 +3859,13 @@ function renderAstaTab(){
   document.querySelectorAll('[data-bid-inc]').forEach(btn=>btn.addEventListener('click',()=>{const i=document.getElementById('live-price-input');if(!i)return;i.value=(parseInt(i.value)||0)+Number(btn.dataset.bidInc);updateLivePriceAlert();}));
   document.querySelectorAll('[data-bid-set]').forEach(btn=>btn.addEventListener('click',()=>{const p=liveSelectedPlayer(),i=document.getElementById('live-price-input');if(!p||!i)return;const r=recommendationFor(p);i.value=btn.dataset.bidSet==='stop'?r.stop:r.fair;updateLivePriceAlert();}));
   document.getElementById('asta-undo-btn')?.addEventListener('click',()=>{const last=undoLastPurchase();if(last){liveSelectedKey=last.k;refreshAfterPickChange();}});
-  document.querySelectorAll('[data-remove-key]').forEach(btn=>btn.addEventListener('click',()=>{delete ROSTER.picks[decodeURIComponent(btn.dataset.removeKey)];saveRoster();refreshAfterPickChange();}));
+  document.querySelectorAll('[data-remove-key]').forEach(btn=>btn.addEventListener('click',()=>{
+    const key=decodeURIComponent(btn.dataset.removeKey||'');
+    if(!key || !ROSTER.picks[key]) return;
+    delete ROSTER.picks[key];
+    saveRoster();
+    refreshAfterPickChange();
+  }));
   document.getElementById('asta-export-btn')?.addEventListener('click',exportRosterJSON);document.getElementById('asta-import-btn')?.addEventListener('click',()=>document.getElementById('asta-import-file').click());document.getElementById('asta-import-file')?.addEventListener('change',importRosterJSON);document.getElementById('asta-share-btn')?.addEventListener('click',shareRosterSummary);
   document.getElementById('asta-reset-btn')?.addEventListener('click',()=>{if(confirm("Azzerare tutti i dati dell'asta?")){ROSTER=normalizeRoster({budget:500,leagueSize:ROSTER.leagueSize,teams:ROSTER.teams,picks:{},skips:{},targets:{},strategyMode:ROSTER.strategyMode,fastMode:false,targetBoardOpen:true});liveSelectedKey=null;saveRoster();refreshAfterPickChange();}});
 }
