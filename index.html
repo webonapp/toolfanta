@@ -1584,7 +1584,40 @@ button,select,input{touch-action:manipulation}
 button,select,input{touch-action:manipulation}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition-duration:.01ms!important}}
 </style>
-<style id="uncalled-v51-style">.uncalled-phase-badge{display:inline-flex;vertical-align:middle;margin-left:7px;padding:3px 7px;border-radius:999px;font-size:8px;letter-spacing:.08em;font-weight:900}.uncalled-phase-badge.pre{background:#fff1c9;color:#775500;border:1px solid #e7c75d}.uncalled-phase-badge.learn{background:#e8f0f6;color:#265b78;border:1px solid #a9c4d5}.uncalled-phase-badge.live{background:#e3f1e8;color:#166044;border:1px solid #a9cfb7}</style></head>
+<style id="uncalled-v51-style">.uncalled-phase-badge{display:inline-flex;vertical-align:middle;margin-left:7px;padding:3px 7px;border-radius:999px;font-size:8px;letter-spacing:.08em;font-weight:900}.uncalled-phase-badge.pre{background:#fff1c9;color:#775500;border:1px solid #e7c75d}.uncalled-phase-badge.learn{background:#e8f0f6;color:#265b78;border:1px solid #a9c4d5}.uncalled-phase-badge.live{background:#e3f1e8;color:#166044;border:1px solid #a9cfb7}</style>
+<style id="v52-roster-listone-ui-fix">
+/* LA MIA ROSA: contatori ruolo sempre leggibili */
+.control-my-roster,.control-my-roster .side-card-body{min-width:0;overflow:visible}
+.control-my-roster .compact-budget-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:100%}
+.control-my-roster .compact-budget-summary>div{min-width:0;padding:10px 7px}
+.control-my-roster .pro-role-composition{display:flex;flex-direction:column;gap:7px;width:100%;min-width:0}
+.control-my-roster .role-gap-row{display:grid!important;grid-template-columns:minmax(88px,118px) minmax(44px,1fr) 42px!important;align-items:center;gap:8px;width:100%;min-width:0;box-sizing:border-box}
+.control-my-roster .role-gap-label{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.control-my-roster .role-gap-bar{width:100%!important;min-width:0!important;max-width:none!important}
+.control-my-roster .role-gap-count{display:block;width:42px!important;min-width:42px!important;max-width:42px!important;text-align:right;white-space:nowrap;overflow:visible!important;font-variant-numeric:tabular-nums;justify-self:end}
+
+/* LISTONE: ordinamento squadra */
+.listone-sort-control{display:flex;align-items:center;gap:7px;padding:5px 7px 5px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);white-space:nowrap}
+.listone-sort-control>span{font-size:11px;font-weight:800;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em}
+.listone-sort-control select{border:0;outline:0;background:transparent;color:var(--ink);font:inherit;font-size:12px;font-weight:750;cursor:pointer;min-width:108px}
+@media(max-width:1180px){
+ .control-my-roster .role-gap-row{grid-template-columns:minmax(76px,102px) minmax(36px,1fr) 40px!important;gap:6px}
+ .control-my-roster .role-gap-count{width:40px!important;min-width:40px!important;max-width:40px!important}
+}
+@media(max-width:900px){
+ .control-my-roster .role-gap-row{grid-template-columns:128px minmax(70px,1fr) 44px!important;gap:9px}
+ .control-my-roster .role-gap-count{width:44px!important;min-width:44px!important;max-width:44px!important}
+ .listone-sort-control{order:4}
+}
+@media(max-width:560px){
+ .control-my-roster .role-gap-row{grid-template-columns:100px minmax(44px,1fr) 40px!important;gap:6px}
+ .control-my-roster .role-gap-label,.control-my-roster .role-gap-count{font-size:11px}
+ .listone-sort-control{width:100%;justify-content:space-between;box-sizing:border-box}
+ .listone-sort-control select{min-width:140px;text-align:right}
+}
+</style>
+
+</head>
 <body>
 
 <header class="top">
@@ -1617,6 +1650,14 @@ button,select,input{touch-action:manipulation}
     </div>
     <div class="role-filters" id="role-filters-listone"></div>
     <div class="toggle-filters" id="toggle-filters-listone"></div>
+    <label class="listone-sort-control" for="sort-listone">
+      <span>Ordina</span>
+      <select id="sort-listone">
+        <option value="default">FVM</option>
+        <option value="team-asc">Squadra A–Z</option>
+        <option value="team-desc">Squadra Z–A</option>
+      </select>
+    </label>
     <div class="count-badge" id="count-listone"></div>
   </div>
   <div class="table-wrap">
@@ -2259,13 +2300,14 @@ function renderCell(p, col){
 
 /* ---------------- GENERIC TABLE CONTROLLER ---------------- */
 function makeTableController(opts){
-  const { cols, tbodyId, theadId, searchId, countId, roleFiltersId, toggleFiltersId, roleFixed, dataSet, defaultSort } = opts;
+  const { cols, tbodyId, theadId, searchId, countId, roleFiltersId, toggleFiltersId, sortControlId, roleFixed, dataSet, defaultSort } = opts;
   let state = {
     query: '',
     role: 'all',
     sortKey: defaultSort || 'fvmC',
     sortDir: 'desc',
     toggles: { infortunati:false, squalificati:false, top:false },
+    sortMode: 'default',
   };
 
   const tbody = document.getElementById(tbodyId);
@@ -2290,6 +2332,9 @@ function makeTableController(opts){
       const col = cols.find(c=>c.key===key);
       if(!col || col.sortable===false) return;
       const doSort = ()=>{
+        state.sortMode='default';
+        const sortControl=sortControlId?document.getElementById(sortControlId):null;
+        if(sortControl)sortControl.value='default';
         if(state.sortKey===key){ state.sortDir = state.sortDir==='asc' ? 'desc' : 'asc'; }
         else { state.sortKey = key; state.sortDir = 'desc'; }
         buildHead();
@@ -2352,6 +2397,22 @@ function makeTableController(opts){
       return true;
     });
     rows.sort((a,b)=>{
+      if(state.sortMode==='team-asc'||state.sortMode==='team-desc'){
+        const an=String(CAL.teamNames[a.team]||a.team||'').toLocaleLowerCase('it');
+        const bn=String(CAL.teamNames[b.team]||b.team||'').toLocaleLowerCase('it');
+        const teamCmp=an.localeCompare(bn,'it',{sensitivity:'base'});
+        if(teamCmp) return state.sortMode==='team-asc'?teamCmp:-teamCmp;
+        // Dentro ogni squadra: ruolo generico, ruolo specifico, poi FVM e nome.
+        const roleCmp=(a.roleOrder??99)-(b.roleOrder??99);
+        if(roleCmp) return roleCmp;
+        const specA=String(a.roleLabel||a.roleSpecific||'').toLocaleLowerCase('it');
+        const specB=String(b.roleLabel||b.roleSpecific||'').toLocaleLowerCase('it');
+        const specCmp=specA.localeCompare(specB,'it',{sensitivity:'base'});
+        if(specCmp) return specCmp;
+        const fvmCmp=(Number(b.fvmC)||0)-(Number(a.fvmC)||0);
+        if(fvmCmp) return fvmCmp;
+        return String(a.name||'').localeCompare(String(b.name||''),'it',{sensitivity:'base'});
+      }
       let av = a[state.sortKey], bv = b[state.sortKey];
       if(av===null||av===undefined) av = -Infinity;
       if(bv===null||bv===undefined) bv = -Infinity;
@@ -2381,6 +2442,14 @@ function makeTableController(opts){
     state.query = e.target.value;
     render();
   });
+
+  const sortControl=sortControlId?document.getElementById(sortControlId):null;
+  if(sortControl){
+    sortControl.addEventListener('change',()=>{
+      state.sortMode=sortControl.value||'default';
+      render();
+    });
+  }
 
   buildHead();
   buildRoleFilters();
@@ -4154,7 +4223,7 @@ function renderAstaTab(){
   const body=document.getElementById('asta-body'); body.classList.toggle('fast-mode',ROSTER.fastMode);
   const room=roomRebalanceSignal(),marketGlobal=marketInflation(),soldN=soldEntries().length;
   body.innerHTML=`
-    <div class="live-topbar pro-topbar"><div><h2 style="margin:0;">Asta Intelligence · v5.1 FIXED</h2><div class="fast-note">La decisione a sinistra. Strategia, budget e rosa sempre sotto controllo a destra.</div></div><div class="pro-room-status"><span>${soldN} venduti</span><span>${skippedPlayers().length} skip</span><span class="${room.active?'hot':''}">${room.active?room.factor.toFixed(2):marketGlobal.toFixed(2)}× stanza</span></div><div style="display:flex;gap:6px"><button id="formation-open-btn" class="formation-open-btn">⚽ Formazione</button><button id="ultra-rapid-toggle" class="ultra-rapid-toggle ${ROSTER.ultraRapid?'active':''}">🚀 Ultra Rapida</button><button id="fast-mode-btn" class="fast-toggle ${ROSTER.fastMode?'active':''}">⚡ ${ROSTER.fastMode?'Completa':'Rapida'}</button></div></div>
+    <div class="live-topbar pro-topbar"><div><h2 style="margin:0;">Asta Intelligence · v5.2 FIXED</h2><div class="fast-note">La decisione a sinistra. Strategia, budget e rosa sempre sotto controllo a destra.</div></div><div class="pro-room-status"><span>${soldN} venduti</span><span>${skippedPlayers().length} skip</span><span class="${room.active?'hot':''}">${room.active?room.factor.toFixed(2):marketGlobal.toFixed(2)}× stanza</span></div><div style="display:flex;gap:6px"><button id="formation-open-btn" class="formation-open-btn">⚽ Formazione</button><button id="ultra-rapid-toggle" class="ultra-rapid-toggle ${ROSTER.ultraRapid?'active':''}">🚀 Ultra Rapida</button><button id="fast-mode-btn" class="fast-toggle ${ROSTER.fastMode?'active':''}">⚡ ${ROSTER.fastMode?'Completa':'Rapida'}</button></div></div>
     ${formationModalHTML()}
 
     <section class="setup-station control-setup">
@@ -4358,6 +4427,7 @@ safeInit('listone',()=>{ listoneController = makeTableController({
   countId: 'count-listone',
   roleFiltersId: 'role-filters-listone',
   toggleFiltersId: 'toggle-filters-listone',
+  sortControlId: 'sort-listone',
   dataSet: DATA,
 }); });
 
