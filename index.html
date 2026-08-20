@@ -1503,6 +1503,19 @@ body.ultra-rapid .pro-key-signals .pro-signal:nth-child(n+5){display:none!import
 .cliff-detail{display:block;margin-top:4px;font-size:8px;color:var(--ink-soft);font-weight:700}
 @media(max-width:720px){.team-impact-row{grid-template-columns:30px 1fr 76px}.team-impact-row>div:last-child{grid-column:2/-1}}
 </style>
+
+<style id="team-impact-rail-fix">
+.control-team-impact{width:100%}
+.control-team-impact .team-impact-box{margin-top:0;border:0;border-radius:0;background:transparent}
+.control-team-impact .team-impact-head{display:none}
+.control-team-impact .team-impact-row{grid-template-columns:26px minmax(95px,1fr) 70px;gap:6px;padding:7px 3px}
+.control-team-impact .team-impact-row>div:last-child{grid-column:2/-1}
+.control-team-impact .team-impact-team b{font-size:10px}
+.control-team-impact .team-impact-team small{font-size:7.5px}
+.control-team-impact .team-impact-value b{font-size:13px}
+.control-team-impact .team-impact-tag{font-size:7px;padding:2px 5px}
+@media(max-width:980px){.control-team-impact{grid-column:1/-1}}
+</style>
 </head>
 <body>
 
@@ -1812,9 +1825,16 @@ function loadRoster(){
     }catch(e){ console.warn('[ROSTER] Lettura fallita da '+key,e); }
   }
   return normalizeRoster({ budget:500, leagueSize:10, picks:{} });
+
+  ROSTER.targets=ROSTER.targets||{};
+  ROSTER.targetPriority=ROSTER.targetPriority||{};
+  ROSTER.skipped=ROSTER.skipped||{};
+  ROSTER.picks=ROSTER.picks||{};
+  ROSTER.history=Array.isArray(ROSTER.history)?ROSTER.history:[];
+  ROSTER.ultraRapid=!!ROSTER.ultraRapid;
 }
 let ROSTER = loadRoster();
-let ENGINE_REV=2001;
+let ENGINE_REV=3001;
 const REC_CACHE=new Map();
 let listoneController=null;
 function invalidateEngine(){ ENGINE_REV++; REC_CACHE.clear(); }
@@ -2921,8 +2941,8 @@ function liveRoleTierCeiling(p){
   const above=prices.filter(v=>v>baseCeiling*1.03);
   if(above.length<2)return {ceiling:baseCeiling,base:baseCeiling,raised:false,n:prices.length,above:above.length,observed:prices.length?prices[Math.floor(prices.length/2)]:null};
   const mid=above.length%2?above[Math.floor((above.length-1)/2)]:(above[Math.floor(above.length/2)-1]+above[Math.floor(above.length/2)])/2;
-  const confidence=clamp((above.length-1)/4,.25,1),observed=Math.max(baseCeiling,mid);
-  const raised=baseCeiling+(observed-baseCeiling)*confidence,hardCap=hist.high*1.35;
+  const confidence=above.length===2?.22:above.length===3?.45:above.length===4?.68:Math.min(1,.78+(above.length-5)*.08),observed=Math.max(baseCeiling,mid);
+  const raised=baseCeiling+(observed-baseCeiling)*confidence,hardCap=hist.high*1.30;
   return {ceiling:Math.min(hardCap,raised),base:baseCeiling,raised:true,n:prices.length,above:above.length,observed};
 }
 function anchoredMarketValue(p,rawValue){
@@ -3306,7 +3326,14 @@ function recommendationFor(p){
   const add=(label,value)=>{if(Math.abs(value-1)>=.025)factors.push({label,value,impact:value-1});};add('mercato comparabili',localMarketMult);add(`curva ${tierLabel(tier).toLowerCase()} ${p.role.toUpperCase()}`,tierMarket.multiplier);factors.push({label:`tetto ${p.role.toUpperCase()} ${tierLabel(tier).toLowerCase()} ${Math.round(anchorCeiling.ceiling)}`,value:marketValue/Math.max(1,uncappedMarketValue),impact:marketValue/Math.max(1,uncappedMarketValue)-1});add('riallineamento globale',marketMult/Math.max(.01,localMarketMult));add('scarsità',scarcity.factor);add('replacement',replacement.factor);add('dato tecnico 25/26',techFactor);add('fase asta',phaseFactor);add('concorrenza',competitionFactor);add(`${ROSTER.leagueSize} squadre`,leagueFactor);add('strategia',needFactor);if(personalCap<marketFair)factors.push({label:'vincolo completamento rosa',value:personalCap/Math.max(1,marketFair),impact:personalCap/Math.max(1,marketFair)-1});factors.sort((a,b)=>Math.abs(b.impact)-Math.abs(a.impact));
   let verdict=personalCap<marketFair?'VALORE DI MERCATO OK, MA NON PER TE: proteggi i crediti necessari a completare la rosa.':'RILANCIA fino al prezzo giusto, poi valuta la stanza.';if(personalCap<marketFair)verdict='VALORE DI MERCATO OK, MA NON PER TE: il tuo tetto deriva dal piano economico della rosa.';else if(stop<=fair)verdict='Budget al limite: questo è già il tuo tetto.';else if(roomRebalance.active && roomRebalance.factor>localMarketMult*1.04)verdict='RIALLINEAMENTO GLOBALE: almeno due prezzi reali hanno superato nettamente le stime e il sistema ha alzato il livello di tutti i ruoli.';else if(market.shock)verdict='CAMBIO REGIME rilevato: i comparabili stanno uscendo molto sopra il riferimento iniziale.';else if(competition==='BASSA')verdict='Poca concorrenza reale: non rilanciare contro te stesso.';else if(scarcity.level==='Alta'&&['elite','top'].includes(tier))verdict='Scarsità alta: puoi usare una parte del margine fino allo STOP.';
   const confidence=Math.round(25+market.confidence*55+Math.min(20,soldEntries(p.role).length*2));
-  const result={base,historicalBand,anchorCeiling,uncappedMarketValue:Math.round(uncappedMarketValue),uncappedGeneralPreCompetition:Math.round(uncappedGeneralPreCompetition),economic,personalCap,percentile,tier,leagueFactor,market,tierMarket,marketValue:Math.round(marketValue),generalMarketValue:Math.round(generalMarketValue),predictedMultiplier:marketMult,localMarketMult,roomRebalance,globalInfl,roleInfl,recentInfl,progress:auctionProgress(),roleProgress:roleMarketProgress(p.role),scarcity,tierScarcity,replacement,slotProfile,roleLeft,slotsLeft,remaining,reserveOther,affordable,needFactor,marketDeal,marketFair,marketStop,deal,fair,stop,max:stop,low:deal,competition,threats,hot,verdict,confidence:clamp(confidence,20,99),technical:tech,technicalFactor:techFactor,factors};
+  
+  // FINAL ECONOMIC GUARD: no downstream signal can spend credits reserved for roster completion.
+  if(Number.isFinite(personalCap)){
+    stop=Math.max(1,Math.min(stop,personalCap));
+    fair=Math.max(1,Math.min(fair,stop));
+    deal=Math.max(1,Math.min(deal,fair));
+  }
+const result={base,historicalBand,anchorCeiling,uncappedMarketValue:Math.round(uncappedMarketValue),uncappedGeneralPreCompetition:Math.round(uncappedGeneralPreCompetition),economic,personalCap,percentile,tier,leagueFactor,market,tierMarket,marketValue:Math.round(marketValue),generalMarketValue:Math.round(generalMarketValue),predictedMultiplier:marketMult,localMarketMult,roomRebalance,globalInfl,roleInfl,recentInfl,progress:auctionProgress(),roleProgress:roleMarketProgress(p.role),scarcity,tierScarcity,replacement,slotProfile,roleLeft,slotsLeft,remaining,reserveOther,affordable,needFactor,marketDeal,marketFair,marketStop,deal,fair,stop,max:stop,low:deal,competition,threats,hot,verdict,confidence:clamp(confidence,20,99),technical:tech,technicalFactor:techFactor,factors};
   REC_CACHE.set(cacheKey,result);
   return result;
 }
@@ -3346,8 +3373,33 @@ function opponentBehaviourHTML(){
 }
 function auditState(){
   const issues=[],owners=new Set(ROSTER.teams.map(t=>t.id));
-  for(const [key,x] of Object.entries(ROSTER.picks||{})){if(!DATA_BY_KEY[key])issues.push({sev:'danger',title:'Giocatore fuori listone',msg:key});if(x.owner&&!owners.has(x.owner))issues.push({sev:'danger',title:'Squadra proprietaria sconosciuta',msg:`${key} → ${x.owner}`});if((Number(x.price)||0)<0)issues.push({sev:'danger',title:'Prezzo negativo',msg:key});}
-  for(const t of ROSTER.teams){const ps=ownerPicks(t.id),rem=ownerRemaining(t.id),c=roleCounts(t.id);if(ps.length>TOTAL_SLOTS)issues.push({sev:'danger',title:`${t.name}: troppi giocatori`,msg:`${ps.length}/${TOTAL_SLOTS}`});if(rem<0)issues.push({sev:'danger',title:`${t.name}: budget negativo`,msg:`${rem} cr.`});ROLE_ORDER.forEach(r=>{if(c[r]>ROLE_TARGETS[r])issues.push({sev:'warn',title:`${t.name}: slot ${r.toUpperCase()} superato`,msg:`${c[r]}/${ROLE_TARGETS[r]}`});});}
+  for(const [key,x] of Object.entries(ROSTER.picks||{})){
+    if(!DATA_BY_KEY[key])issues.push({sev:'danger',title:'Giocatore fuori listone',msg:key});
+    if(x.owner&&!owners.has(x.owner))issues.push({sev:'danger',title:'Squadra proprietaria sconosciuta',msg:`${key} → ${x.owner}`});
+    if((Number(x.price)||0)<0)issues.push({sev:'danger',title:'Prezzo negativo',msg:key});
+  }
+  for(const t of ROSTER.teams){
+    const ps=ownerPicks(t.id),rem=ownerRemaining(t.id),c=roleCounts(t.id);
+    if(ps.length>TOTAL_SLOTS)issues.push({sev:'danger',title:`${t.name}: troppi giocatori`,msg:`${ps.length}/${TOTAL_SLOTS}`});
+    if(rem<0)issues.push({sev:'danger',title:`${t.name}: budget negativo`,msg:`${rem} cr.`});
+    ROLE_ORDER.forEach(r=>{if(c[r]>ROLE_TARGETS[r])issues.push({sev:'warn',title:`${t.name}: slot ${r.toUpperCase()} superato`,msg:`${c[r]}/${ROLE_TARGETS[r]}`});});
+  }
+  // Pricing invariants on representative top profiles.
+  for(const p of DATA){
+    if(!['elite','top'].includes(qualityTier(p)))continue;
+    try{
+      const r=recommendationFor(p);
+      if(Number.isFinite(r.anchorCeiling?.ceiling)&&r.marketFair>Math.ceil(r.anchorCeiling.ceiling)+1)
+        issues.push({sev:'danger',title:'Mercato sopra il tetto fascia',msg:`${p.name}: ${r.marketFair} > ${Math.round(r.anchorCeiling.ceiling)}`});
+      if(Number.isFinite(r.personalCap)&&r.stop>r.personalCap)
+        issues.push({sev:'danger',title:'Stop sopra cap personale',msg:`${p.name}: ${r.stop} > ${r.personalCap}`});
+      if(r.deal>r.fair||r.fair>r.stop)
+        issues.push({sev:'danger',title:'Ordine prezzi incoerente',msg:`${p.name}: ${r.deal}/${r.fair}/${r.stop}`});
+    }catch(e){
+      issues.push({sev:'danger',title:'Errore calcolo recommendation',msg:`${p.name}: ${String(e.message||e)}`});
+    }
+    if(issues.length>=30)break;
+  }
   return issues.slice(0,30);
 }
 function auditHTML(){
@@ -3544,7 +3596,7 @@ function renderLivePlayerCard(p){
     ${regime}
     ${advisorBannerHTML(p,price)}
     ${simulatePurchaseHTML(p,price)}
-    ${teamImpactHTML(p)}
+    
     ${strategyPlanHTML()}
 
     <div class="pro-key-signals">
@@ -3705,6 +3757,7 @@ function renderAstaTab(){
         <section class="side-card control-budget"><div class="side-card-title"><span>💰 Budget Planner</span><small>live</small></div><div class="side-card-body">${budgetPlannerHTML()}</div></section>
 
         <section class="side-card control-my-roster"><div class="side-card-title"><span>🧩 La mia rosa</span><small>${mine.length}/25 · ${remaining} cr.</small></div><div class="side-card-body"><div class="compact-budget-summary"><div><b>${remaining}</b><span>Rimasti</span></div><div><b>${spent}</b><span>Spesi</span></div><div><b>${Math.round(remaining/Math.max(1,TOTAL_SLOTS-mine.length))}</b><span>Media/slot</span></div></div><div class="pro-role-composition compact-composition">${roleRows}</div><div class="pro-my-picks compact-my-picks">${picksHTML}</div></div></section>
+        ${currentPlayer?`<section class="side-card control-team-impact"><div class="side-card-title"><span>🎯 Team Impact</span><small>live</small></div><div class="side-card-body">${teamImpactHTML(currentPlayer)}</div></section>`:''}
       </aside>
     </section>
 
