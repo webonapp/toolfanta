@@ -3757,7 +3757,7 @@ function renderAstaTab(){
         <section class="side-card control-budget"><div class="side-card-title"><span>💰 Budget Planner</span><small>live</small></div><div class="side-card-body">${budgetPlannerHTML()}</div></section>
 
         <section class="side-card control-my-roster"><div class="side-card-title"><span>🧩 La mia rosa</span><small>${mine.length}/25 · ${remaining} cr.</small></div><div class="side-card-body"><div class="compact-budget-summary"><div><b>${remaining}</b><span>Rimasti</span></div><div><b>${spent}</b><span>Spesi</span></div><div><b>${Math.round(remaining/Math.max(1,TOTAL_SLOTS-mine.length))}</b><span>Media/slot</span></div></div><div class="pro-role-composition compact-composition">${roleRows}</div><div class="pro-my-picks compact-my-picks">${picksHTML}</div></div></section>
-        ${currentPlayer?`<section class="side-card control-team-impact"><div class="side-card-title"><span>🎯 Team Impact</span><small>live</small></div><div class="side-card-body">${teamImpactHTML(currentPlayer)}</div></section>`:''}
+        ${selected?`<section class="side-card control-team-impact"><div class="side-card-title"><span>🎯 Team Impact</span><small>live</small></div><div class="side-card-body">${teamImpactHTML(selected)}</div></section>`:''}
       </aside>
     </section>
 
