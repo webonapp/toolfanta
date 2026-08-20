@@ -1541,6 +1541,39 @@ body.ultra-rapid .pro-key-signals .pro-signal:nth-child(n+5){display:none!import
 .pitch-line{display:flex;justify-content:space-evenly;align-items:center;gap:10px;width:100%}.pitch-player{width:clamp(92px,12vw,145px);min-height:48px;padding:8px;border-radius:12px;background:rgba(255,255,255,.94);box-shadow:0 5px 16px rgba(0,0,0,.13);text-align:center;border:2px solid;box-sizing:border-box}.pitch-player b{display:block;font-size:clamp(11px,1.2vw,15px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pitch-player small{font-size:9px;opacity:.7}.pitch-player.empty{opacity:.55;border-style:dashed}.pitch-player.role-p{border-color:#f4a621}.pitch-player.role-d{border-color:#2c78aa}.pitch-player.role-c{border-color:#5cae2e}.pitch-player.role-a{border-color:#d64b38}
 .formation-bench{padding:0 22px 22px}.formation-bench>b{display:block;margin-bottom:8px;color:var(--pitch)}.formation-bench>div{display:flex;flex-wrap:wrap;gap:7px}.bench-chip{font-size:11px;padding:6px 9px;background:var(--soft,#eef2ef);border-radius:999px;font-weight:800}
 @media(max-width:820px){.formation-modal{padding:8px}.formation-dialog{width:100%;border-radius:16px}.formation-head{padding:15px 14px 10px}.formation-toolbar{padding:0 14px 12px}.formation-pitch-wrap{padding:0 8px 14px}.formation-pitch{aspect-ratio:.82/1;padding:8% 2% 6%;background-size:auto 100%}.pitch-line{gap:3px}.pitch-player{width:min(19vw,115px);min-height:42px;padding:6px 3px}.pitch-player b{font-size:10px}.formation-bench{padding:0 14px 16px}}
+</style>
+<style id="formation-multi-player-style">
+.pitch-player.multi{min-height:58px;height:auto;padding:7px 6px}
+.position-label{display:block;margin-bottom:4px;font-size:7px!important;font-weight:900;text-transform:uppercase;letter-spacing:.05em;opacity:.62!important}
+.position-stack{display:flex;flex-direction:column;gap:4px}
+.stack-player{display:block;border-radius:8px;background:rgba(255,255,255,.88);padding:4px 5px;line-height:1.05;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.stack-player b{display:block;font-size:9px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stack-player small{display:block;font-size:6.5px!important;margin-top:2px;opacity:.65!important}
+.multi-empty{font-size:16px;font-weight:900}
+@media(max-width:820px){
+  .pitch-player.multi{padding:5px 3px;min-height:48px}
+  .stack-player{padding:3px}
+  .stack-player b{font-size:7.5px!important}
+  .stack-player small{font-size:5.5px!important}
+  .position-label{font-size:6px!important}
+}
+</style>
+
+<style id="fast-performance-style">
+html{scroll-behavior:auto}
+button,select,input{touch-action:manipulation}
+.auction-search-results,.search-results{overscroll-behavior:contain}
+.formation-dialog,.side-card,.pro-panel{contain:layout paint}
+</style>
+<style id="v4-pro-ui">
+:root{--v4-shadow:0 12px 34px rgba(10,45,34,.10);--v4-radius:16px}
+.live-topbar.pro-topbar{border-radius:0 0 18px 18px;box-shadow:0 8px 26px rgba(7,46,34,.12)}
+.auction-main-card,.side-card,.setup-station,.pro-panel{border-radius:var(--v4-radius)!important;box-shadow:var(--v4-shadow)}
+.fast-toggle,.ultra-rapid-toggle,.formation-open-btn{transition:transform .12s ease,background .12s ease,box-shadow .12s ease}.fast-toggle:active,.ultra-rapid-toggle:active,.formation-open-btn:active{transform:scale(.97)}
+.v4-formation-dialog{background:#f7f8f6}.v4-formation-head{background:linear-gradient(135deg,#0b4a37,#123f32);color:#fff}.v4-formation-head h2{color:#fff!important}.v4-formation-head p{color:rgba(255,255,255,.72)!important}.v4-kicker{display:block;font-size:9px;font-weight:900;letter-spacing:.16em;color:#e2bf4d;margin-bottom:5px}.v4-formation-toolbar{padding-top:14px;background:#fff;border-bottom:1px solid var(--line)}
+.v4-pitch{justify-content:space-between!important;padding:5% 4% 4%!important}.v4-line{display:flex;justify-content:space-evenly;align-items:flex-start;gap:12px;width:100%}.v4-pos{width:min(18%,170px);min-width:100px;position:relative;text-align:center}.v4-line-p .v4-pos{width:min(24%,180px)}
+.v4-role{display:inline-block;background:#0b3f30;color:#fff;border-radius:999px;padding:4px 8px;font-size:9px;font-weight:900;margin-bottom:5px;box-shadow:0 3px 9px rgba(0,0,0,.16)}.v4-pos-stack{display:flex;flex-direction:column;gap:5px}.v4-player{position:relative;background:rgba(255,255,255,.96);border:1px solid rgba(20,70,55,.14);border-radius:10px;padding:7px 22px 7px 7px;box-shadow:0 4px 12px rgba(0,0,0,.09);text-align:left}.v4-player b{display:block;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.v4-player small{font-size:7px;color:#69746f}.v4-player button{position:absolute;right:5px;top:50%;transform:translateY(-50%);width:17px;height:17px;border:0;border-radius:50%;background:#f3e6e3;color:#a53e31;cursor:pointer;font-weight:900}.v4-empty{height:34px;border:1px dashed rgba(20,70,55,.30);border-radius:9px;background:rgba(255,255,255,.55);display:grid;place-items:center;color:#87928d}.v4-add-player{width:100%;margin-top:5px;border:0;border-radius:8px;padding:6px 7px;background:rgba(255,255,255,.93);box-shadow:0 3px 10px rgba(0,0,0,.08);font-size:8px;font-weight:700}.v4-line-p .v4-role{background:#c58d19}.v4-line-d .v4-role{background:#2d6f96}.v4-line-c .v4-role{background:#4d8c33}.v4-line-a .v4-role{background:#ad493b}
+@media(max-width:900px){.auction-control-room{grid-template-columns:1fr!important}.auction-side-rail{position:static!important}.v4-pitch{aspect-ratio:.82/1!important;padding:6% 2%!important}.v4-line{gap:4px}.v4-pos{min-width:0;width:22%}.v4-line-p .v4-pos{width:30%}.v4-player{padding:5px 18px 5px 5px}.v4-player b{font-size:8px}.v4-add-player{font-size:7px;padding:5px 3px}}
 </style></head>
 <body>
 
@@ -1879,10 +1912,10 @@ function loadRoster(){
   return normalizeRoster({ budget:500, leagueSize:10, picks:{} });
 }
 let ROSTER = loadRoster();
-let ENGINE_REV=6001;
+let ENGINE_REV=8001;
 const REC_CACHE=new Map();
 let listoneController=null;
-function invalidateEngine(){ ENGINE_REV++; REC_CACHE.clear(); }
+function invalidateEngine(){ ENGINE_REV++; REC_CACHE.clear(); if(typeof TEAM_IMPACT_CACHE!=="undefined")TEAM_IMPACT_CACHE.clear();if(typeof ECONOMIC_PLAN_CACHE!=="undefined")ECONOMIC_PLAN_CACHE.clear();if(typeof OPP_COMP_CACHE!=="undefined")OPP_COMP_CACHE.clear();}
 function saveRoster(){
   invalidateEngine();
   try{
@@ -2813,7 +2846,7 @@ function switchTab(key){
   if(key === 'nuovi' && typeof renderNuoviAcquisti==='function') renderNuoviAcquisti();
   if(key === 'scambi' && typeof renderTradeTab==='function') renderTradeTab();
   const activeBtn = document.querySelector(`nav.tabs button[data-tab="${key}"]`);
-  if(activeBtn && activeBtn.scrollIntoView) activeBtn.scrollIntoView({block:'nearest', inline:'center'});
+  if(activeBtn && activeBtn.scrollIntoView) activeBtn.scrollIntoView({block:'nearest', inline:'center', behavior:'auto'});
 }
 function initTabs(){
   const btns = document.querySelectorAll('nav.tabs button');
@@ -3179,7 +3212,10 @@ function strategicReserve(excludeRole=null,hypotheticalRole=null,hypotheticalPri
   ROLE_ORDER.forEach(r=>{let have=counts[r]+(hypotheticalRole===r?1:0),missing=Math.max(0,ROLE_TARGETS[r]-have);if(!missing||r===excludeRole)return;const target=Math.round(ROSTER.budget*shares[r]);const spent=roleSpent('me',r)+(hypotheticalRole===r?hypotheticalPrice:0);reserve+=Math.max(missing,Math.round(Math.max(0,target-spent)*.70));});return reserve;
 }
 
+const ECONOMIC_PLAN_CACHE=new Map();
 function economicRolePlan(){
+  const __k=`${ENGINE_REV}|${ROSTER.budget}|${ROSTER.strategyMode}|${ownerPicks('me').length}`;
+  if(ECONOMIC_PLAN_CACHE.has(__k))return ECONOMIC_PLAN_CACHE.get(__k);
   const counts=roleCounts('me'),rem=Math.max(0,budgetRemaining()),plan=adaptiveStrategyPlan(),shares=plan.effective;
   const raw=ROLE_ORDER.map(role=>{
     const missing=Math.max(0,ROLE_TARGETS[role]-counts[role]);if(!missing)return null;
@@ -3197,7 +3233,7 @@ function economicRolePlan(){
     const c=[...rows].sort((a,b)=>(b.targetGap-b.alloc)-(a.targetGap-a.alloc))[0];
     c.alloc++;total++;
   }
-  return {remaining:rem,rows,byRole:Object.fromEntries(rows.map(x=>[x.role,x])),plan};
+  const __v={remaining:rem,rows,byRole:Object.fromEntries(rows.map(x=>[x.role,x])),plan};ECONOMIC_PLAN_CACHE.set(__k,__v);return __v;
 }
 function personalEconomicCeiling(p){
   const eco=economicRolePlan(),row=eco.byRole[p.role],remaining=eco.remaining,slotsLeft=Math.max(0,TOTAL_SLOTS-ownerPicks('me').length);
@@ -3254,15 +3290,20 @@ function teamImpactFor(p,owner){
   if(budgetFit<.55)reasons.push('budget poco compatibile');else if(budgetFit>=1)reasons.push('budget compatibile');
   return {owner,fitScore,improvement,level,missing,premiumOwned,replacementGain,budgetFit,spendable,reasons};
 }
-function teamImpactMatrix(p){
-  return ROSTER.teams.map(t=>({...teamImpactFor(p,t.id),name:t.name})).sort((a,b)=>b.improvement-a.improvement||b.fitScore-a.fitScore);
-}
+
+const TEAM_IMPACT_CACHE=new Map();
+function teamImpactCacheKey(p){return `${ENGINE_REV}|${playerKey(p)}`;}
+
+function teamImpactMatrix(p){const k=teamImpactCacheKey(p);if(TEAM_IMPACT_CACHE.has(k))return TEAM_IMPACT_CACHE.get(k);const v=ROSTER.teams.map(t=>({...teamImpactFor(p,t.id),name:t.name})).sort((a,b)=>b.improvement-a.improvement||b.fitScore-a.fitScore);TEAM_IMPACT_CACHE.set(k,v);return v;}
 function teamImpactHTML(p){
   const rows=teamImpactMatrix(p),max=Math.max(1,...rows.map(x=>x.improvement)),topOpponent=rows.find(x=>x.owner!=='me');
   return `<div class="team-impact-box"><div class="team-impact-head"><div><b>🎯 Team Impact</b><small>Quanto questo giocatore migliorerebbe ogni rosa</small></div>${topOpponent?`<span class="team-impact-tag">Minaccia: ${esc(topOpponent.name)} +${topOpponent.improvement.toFixed(1)}%</span>`:''}</div>
   <div class="team-impact-list">${rows.map((x,i)=>{const cls=x.owner==='me'?'me':(x.owner!=='me'&&topOpponent&&x.owner===topOpponent.owner?'threat':'');return `<div class="team-impact-row ${cls}"><div class="team-impact-rank">#${i+1}</div><div class="team-impact-team"><b>${esc(x.name)}${x.owner==='me'?' · TU':''}</b><small>${esc(x.reasons.slice(0,2).join(' · '))}</small><span class="team-impact-tag">${x.level}</span></div><div class="team-impact-value"><b>+${x.improvement.toFixed(1)}%</b><small>IMPATTO ROSA</small></div><div><div class="team-impact-bar"><i style="width:${Math.round(x.improvement/max*100)}%"></i></div><small style="font-size:8px;color:var(--ink-soft)">fit ${Math.round(x.fitScore)}/100 · spendibili ${x.spendable}</small></div></div>`;}).join('')}</div></div>`;
 }
+const OPP_COMP_CACHE=new Map();
 function opponentCompetition(p,expectedPrice){
+  const __k=`${ENGINE_REV}|${playerKey(p)}|${Math.round(expectedPrice)}`;
+  if(OPP_COMP_CACHE.has(__k))return OPP_COMP_CACHE.get(__k);
   const out=[],tier=qualityTier(p);
   ROSTER.teams.filter(t=>t.id!=='me').forEach(t=>{
     const counts=roleCounts(t.id),missing=Math.max(0,ROLE_TARGETS[p.role]-counts[p.role]);if(!missing)return;
@@ -3272,7 +3313,7 @@ function opponentCompetition(p,expectedPrice){
     const behaviour=typeof opponentBehaviour==='function'?opponentBehaviour(t.id):null;if(behaviour&&behaviour.n>=3&&behaviour.avg>=1.18)score+=1;
     out.push({id:t.id,name:t.name,missing,rem,slots,spendable,score,need,impact:impact.improvement,impactLevel:impact.level});
   });
-  return out.sort((a,b)=>b.score-a.score||b.impact-a.impact||b.spendable-a.spendable);
+  const __v=out.sort((a,b)=>b.score-a.score||b.impact-a.impact||b.spendable-a.spendable);OPP_COMP_CACHE.set(__k,__v);return __v;
 }
 function scarcityInfo(p){
   const pct=playerPercentile(p),tier=qualityTier(p),band=.10;
@@ -3393,6 +3434,9 @@ function recommendationFor(p){
     deal=Math.max(1,Math.min(deal,fair));
   }
 const result={base,historicalBand,anchorCeiling,uncappedMarketValue:Math.round(uncappedMarketValue),uncappedGeneralPreCompetition:Math.round(uncappedGeneralPreCompetition),economic,personalCap,percentile,tier,leagueFactor,market,tierMarket,marketValue:Math.round(marketValue),generalMarketValue:Math.round(generalMarketValue),predictedMultiplier:marketMult,localMarketMult,roomRebalance,globalInfl,roleInfl,recentInfl,progress:auctionProgress(),roleProgress:roleMarketProgress(p.role),scarcity,tierScarcity,replacement,slotProfile,roleLeft,slotsLeft,remaining,reserveOther,affordable,needFactor,marketDeal,marketFair,marketStop,deal,fair,stop,max:stop,low:deal,competition,threats,hot,verdict,confidence:clamp(confidence,20,99),technical:tech,technicalFactor:techFactor,factors};
+if(Number.isFinite(result.personalCap)&&result.stop>result.personalCap){result.stop=result.personalCap;result.fair=Math.min(result.fair,result.stop);result.deal=Math.min(result.deal,result.fair);}
+  if(result.deal>result.fair)result.deal=result.fair;if(result.fair>result.stop)result.fair=result.stop;
+  if(Number.isFinite(result.anchorCeiling?.ceiling)&&result.marketFair>Math.ceil(result.anchorCeiling.ceiling)){result.marketFair=Math.ceil(result.anchorCeiling.ceiling);result.marketStop=Math.min(result.marketStop,Math.ceil(result.anchorCeiling.ceiling));result.marketDeal=Math.min(result.marketDeal,result.marketFair);}
   REC_CACHE.set(cacheKey,result);
   return result;
 }
@@ -3716,13 +3760,32 @@ function closeAssignModal(){
   document.getElementById('assign-modal-overlay').hidden = true;
   modalPlayer = null;
 }
+
+let __scoreboardQueued=false,__astaQueued=false,__listoneQueued=false;
+function scheduleScoreboard(){
+  if(__scoreboardQueued)return;
+  __scoreboardQueued=true;
+  requestAnimationFrame(()=>{__scoreboardQueued=false;renderScoreboard();});
+}
+function scheduleAsta(){
+  if(__astaQueued)return;
+  __astaQueued=true;
+  requestAnimationFrame(()=>{__astaQueued=false;const v=document.getElementById('view-asta');if(v&&!v.hidden)renderAstaTab();});
+}
+function scheduleListone(){
+  if(__listoneQueued)return;
+  __listoneQueued=true;
+  requestAnimationFrame(()=>{__listoneQueued=false;const v=document.getElementById('view-listone');if(v&&!v.hidden&&typeof listoneController!=='undefined'&&listoneController)listoneController.render();});
+}
+
 function refreshAfterPickChange(){
-  renderScoreboard();
-  if(typeof listoneController !== 'undefined' && listoneController) listoneController.render();
-  const astaView = document.getElementById('view-asta');
-  if(astaView && !astaView.hidden) renderAstaTab();
+  scheduleScoreboard();
+  scheduleListone();
+  scheduleAsta();
   const tradeView=document.getElementById('view-scambi');
-  if(tradeView && !tradeView.hidden && typeof renderTradeTab==='function') renderTradeTab(true);
+  if(tradeView && !tradeView.hidden && typeof renderTradeTab==='function'){
+    requestAnimationFrame(()=>renderTradeTab(true));
+  }
 }
 function openAssignModal(p){
   modalPlayer = p;
@@ -3796,10 +3859,57 @@ function opponentRostersHTML(){
 
 const FORMATION_SCHEMES={"5-4-1":{d:5,c:4,a:1},"4-5-1":{d:4,c:5,a:1},"5-3-2":{d:5,c:3,a:2},"4-4-2":{d:4,c:4,a:2},"3-5-2":{d:3,c:5,a:2},"4-3-3":{d:4,c:3,a:3},"3-4-3":{d:3,c:4,a:3}};
 function formationState(){ROSTER.formation=(ROSTER.formation&&typeof ROSTER.formation==='object')?ROSTER.formation:{};if(!FORMATION_SCHEMES[ROSTER.formation.module])ROSTER.formation.module='4-3-3';return ROSTER.formation;}
-function formationPlayers(){const f=formationState(),s=FORMATION_SCHEMES[f.module],mine=ownerPicks('me').slice().sort((a,b)=>(b.price||0)-(a.price||0)),r={p:[],d:[],c:[],a:[]};mine.forEach(x=>{if(r[x.role])r[x.role].push(x)});return {p:r.p.slice(0,1),d:r.d.slice(0,s.d),c:r.c.slice(0,s.c),a:r.a.slice(0,s.a),bench:[...r.p.slice(1),...r.d.slice(s.d),...r.c.slice(s.c),...r.a.slice(s.a)]};}
-function formationRowHTML(role,players,needed){const labels={p:'PORTIERE',d:'DIFENSORI',c:'CENTROCAMPISTI',a:'ATTACCANTI'},slots=[];for(let i=0;i<needed;i++){const x=players[i];slots.push(x?`<div class="pitch-player role-${role}"><b>${esc(x.name)}</b><small>${esc(x.team)}</small></div>`:`<div class="pitch-player empty role-${role}"><b>+</b><small>${labels[role]}</small></div>`)}return `<div class="pitch-line pitch-line-${role}">${slots.join('')}</div>`;}
-function formationModalHTML(){const f=formationState(),s=FORMATION_SCHEMES[f.module],ps=formationPlayers();return `<div id="formation-modal" class="formation-modal" hidden><div class="formation-dialog" role="dialog" aria-modal="true"><div class="formation-head"><div><h2>⚽ Formazione</h2><p>Gli acquisti vengono inseriti automaticamente per ruolo. Un giocatore, un ruolo, una posizione.</p></div><button id="formation-close" class="formation-close">×</button></div><div class="formation-toolbar"><label><span>Modulo</span><select id="formation-module">${Object.keys(FORMATION_SCHEMES).map(m=>`<option value="${m}" ${m===f.module?'selected':''}>${m}</option>`).join('')}</select></label><div class="formation-count">${ownerPicks('me').length}/25 acquistati · XI ${1+s.d+s.c+s.a}/11</div></div><div class="formation-pitch-wrap"><div class="formation-pitch">${formationRowHTML('a',ps.a,s.a)}${formationRowHTML('c',ps.c,s.c)}${formationRowHTML('d',ps.d,s.d)}${formationRowHTML('p',ps.p,1)}</div></div><div class="formation-bench"><b>Panchina / oltre l'XI</b><div>${ps.bench.length?ps.bench.map(x=>`<span class="bench-chip role-${x.role}">${esc(x.name)} · ${x.role.toUpperCase()}</span>`).join(''):'<small>Nessun giocatore fuori dall’XI.</small>'}</div></div></div></div>`;}
-function bindFormationUI(){const btn=document.getElementById('formation-open-btn'),modal=document.getElementById('formation-modal');if(!btn||!modal)return;const open=()=>{modal.hidden=false;document.body.classList.add('formation-open')},close=()=>{modal.hidden=true;document.body.classList.remove('formation-open')};btn.addEventListener('click',open);document.getElementById('formation-close')?.addEventListener('click',close);modal.addEventListener('click',e=>{if(e.target===modal)close()});document.getElementById('formation-module')?.addEventListener('change',e=>{formationState().module=e.target.value;saveRoster();renderAstaTab();setTimeout(()=>document.getElementById('formation-open-btn')?.click(),0);});}
+
+function formationAssignments(){
+  const f=formationState(),s=FORMATION_SCHEMES[f.module];
+  ROSTER.formation.slots=(ROSTER.formation.slots&&typeof ROSTER.formation.slots==='object')?ROSTER.formation.slots:{};
+  const mine=ownerPicks('me'),roleSlots={p:1,d:s.d,c:s.c,a:s.a},validKeys=new Set(mine.map(x=>x.name+'|'+x.team));
+  Object.keys(ROSTER.formation.slots).forEach(k=>{
+    const key=ROSTER.formation.slots[k],p=mine.find(x=>(x.name+'|'+x.team)===key),parts=k.split('-'),role=parts[0],idx=Number(parts[1]);
+    if(!validKeys.has(key)||!p||p.role!==role||!roleSlots[role]||idx>=roleSlots[role])delete ROSTER.formation.slots[k];
+  });
+  const seen=new Set();
+  Object.keys(ROSTER.formation.slots).sort().forEach(k=>{const key=ROSTER.formation.slots[k];if(seen.has(key))delete ROSTER.formation.slots[k];else seen.add(key);});
+  const byRole={p:[],d:[],c:[],a:[]};mine.forEach(x=>{if(byRole[x.role])byRole[x.role].push(x)});
+  for(const [role,players] of Object.entries(byRole)){
+    const n=roleSlots[role];players.sort((a,b)=>(b.price||0)-(a.price||0));
+    for(const p of players){
+      const key=p.name+'|'+p.team;if(seen.has(key))continue;
+      const loads=Array.from({length:n},(_,i)=>Object.keys(ROSTER.formation.slots).filter(k=>k.startsWith(role+'-'+i+'-')).length);
+      const idx=loads.indexOf(Math.min(...loads));
+      ROSTER.formation.slots[`${role}-${idx}-${Date.now()}-${Math.random().toString(36).slice(2,6)}`]=key;seen.add(key);
+    }
+  }
+  return {mine,roleSlots};
+}
+function formationPlayers(){
+  const {mine,roleSlots}=formationAssignments(),groups={p:[[]],d:Array.from({length:roleSlots.d},()=>[]),c:Array.from({length:roleSlots.c},()=>[]),a:Array.from({length:roleSlots.a},()=>[])},used=new Set();
+  for(const [slotKey,key] of Object.entries(ROSTER.formation.slots||{})){
+    const parts=slotKey.split('-'),role=parts[0],idx=Number(parts[1]),p=mine.find(x=>(x.name+'|'+x.team)===key);
+    if(!p||p.role!==role||!groups[role]?.[idx]||used.has(key))continue;
+    groups[role][idx].push(p);used.add(key);
+  }
+  return groups;
+}
+function formationSlotHTML(role,group,index,total){
+  const labels={p:'P',d:'D',c:'C',a:'A'},all=ownerPicks('me').filter(x=>x.role===role),assigned=new Set(Object.values(ROSTER.formation?.slots||{})),free=all.filter(x=>!assigned.has(x.name+'|'+x.team));
+  return `<div class="v4-pos role-${role}"><span class="v4-role">${labels[role]}${total>1?index+1:''}</span><div class="v4-pos-stack">${group.length?group.map(x=>`<div class="v4-player"><b>${esc(x.name)}</b><small>${esc(x.team)} · ${x.price||0} cr.</small><button type="button" data-formation-remove="${encodeURIComponent(x.name+'|'+x.team)}">×</button></div>`).join(''):`<div class="v4-empty">—</div>`}</div>${free.length?`<select class="v4-add-player" data-formation-role="${role}" data-formation-index="${index}"><option value="">+ aggiungi ${labels[role]}</option>${free.map(x=>`<option value="${encodeURIComponent(x.name+'|'+x.team)}">${esc(x.name)}</option>`).join('')}</select>`:''}</div>`;
+}
+function formationLineHTML(role,groups){return `<div class="v4-line v4-line-${role}">${groups.map((g,i)=>formationSlotHTML(role,g,i,groups.length)).join('')}</div>`;}
+function formationModalHTML(){
+  const f=formationState(),ps=formationPlayers(),mine=ownerPicks('me');
+  return `<div id="formation-modal" class="formation-modal" hidden><div class="formation-dialog v4-formation-dialog" role="dialog" aria-modal="true"><div class="formation-head v4-formation-head"><div><span class="v4-kicker">ROSA LIVE</span><h2>La mia formazione · ${f.module}</h2><p>Ruoli generici P / D / C / A. Distribuzione automatica e spostamenti solo nello stesso ruolo.</p></div><button id="formation-close" class="formation-close">×</button></div><div class="formation-toolbar v4-formation-toolbar"><label><span>Modulo</span><select id="formation-module">${Object.keys(FORMATION_SCHEMES).map(m=>`<option value="${m}" ${m===f.module?'selected':''}>${m}</option>`).join('')}</select></label><div class="formation-count">${mine.length}/25 · ${mine.filter(x=>x.role==='p').length} P · ${mine.filter(x=>x.role==='d').length} D · ${mine.filter(x=>x.role==='c').length} C · ${mine.filter(x=>x.role==='a').length} A</div></div><div class="formation-pitch-wrap"><div class="formation-pitch v4-pitch">${formationLineHTML('p',ps.p)}${formationLineHTML('d',ps.d)}${formationLineHTML('c',ps.c)}${formationLineHTML('a',ps.a)}</div></div></div></div>`;
+}
+function bindFormationUI(){
+  const btn=document.getElementById('formation-open-btn'),modal=document.getElementById('formation-modal');if(!btn||!modal)return;
+  const open=()=>{modal.hidden=false;document.body.classList.add('formation-open')},close=()=>{modal.hidden=true;document.body.classList.remove('formation-open')};
+  btn.onclick=open;document.getElementById('formation-close')?.addEventListener('click',close);modal.addEventListener('click',e=>{if(e.target===modal)close()});
+  document.getElementById('formation-module')?.addEventListener('change',e=>{formationState().module=e.target.value;formationState().slots={};saveRoster();renderAstaTab();requestAnimationFrame(()=>document.getElementById('formation-open-btn')?.click());});
+  modal.querySelectorAll('[data-formation-remove]').forEach(b=>b.addEventListener('click',()=>{const key=decodeURIComponent(b.dataset.formationRemove||'');Object.keys(ROSTER.formation.slots||{}).forEach(k=>{if(ROSTER.formation.slots[k]===key)delete ROSTER.formation.slots[k]});saveRoster();renderAstaTab();requestAnimationFrame(()=>document.getElementById('formation-open-btn')?.click());}));
+  modal.querySelectorAll('.v4-add-player').forEach(sel=>sel.addEventListener('change',()=>{if(!sel.value)return;const key=decodeURIComponent(sel.value),role=sel.dataset.formationRole,idx=Number(sel.dataset.formationIndex);Object.keys(ROSTER.formation.slots||{}).forEach(k=>{if(ROSTER.formation.slots[k]===key)delete ROSTER.formation.slots[k]});ROSTER.formation.slots[`${role}-${idx}-${Date.now()}`]=key;saveRoster();renderAstaTab();requestAnimationFrame(()=>document.getElementById('formation-open-btn')?.click());}));
+}
+
+const FAST_SEARCH_INDEX=DATA.map(p=>({p,name:String(p.name||'').toLowerCase(),team:String(CAL.teamNames[p.team]||p.team||'').toLowerCase()}));
 
 function renderAstaTab(){
   const spent=budgetSpent(),remaining=budgetRemaining(),counts=roleCounts('me'),mine=ownerPicks('me').sort((a,b)=>(b.price||0)-(a.price||0));
@@ -3875,8 +3985,8 @@ function renderAstaTab(){
   if(targetPanel)targetPanel.addEventListener('toggle',()=>{ROSTER.targetBoardOpen=targetPanel.open;try{localStorage.setItem(ROSTER_KEY,JSON.stringify(ROSTER));}catch(e){}});
 
   const search=document.getElementById('live-player-search'),results=document.getElementById('live-player-results');
-  function showResults(){const q=search.value.trim().toLowerCase();if(q.length<2){results.classList.remove('open');results.innerHTML='';return;}const matches=DATA.filter(p=>!ROSTER.picks[playerKey(p)]&&(p.name.toLowerCase().includes(q)||(CAL.teamNames[p.team]||'').toLowerCase().includes(q))).slice(0,12);results.innerHTML=matches.map(p=>{const r=recommendationFor(p);return `<div class="auction-result" data-live-key="${encodeURIComponent(playerKey(p))}"><span class="role-badge role-${p.role}">${p.role.toUpperCase()}</span><div class="auction-result-main"><div class="auction-result-name">${esc(p.name)}</div><div class="auction-result-meta">${esc(CAL.teamNames[p.team]||p.team)} · ${tierLabel(r.tier)} ${isSkipped(p)?'· ⏭ SKIP':''}</div></div><div class="auction-result-price"><small>MKT ${r.marketFair}</small><b>TU ${r.fair}</b></div></div>`;}).join('');results.classList.toggle('open',matches.length>0);results.querySelectorAll('[data-live-key]').forEach(el=>el.addEventListener('click',()=>{liveSelectedKey=decodeURIComponent(el.dataset.liveKey);renderAstaTab();setTimeout(()=>document.getElementById('live-price-input')?.focus(),0);}));}
-  search.addEventListener('input',showResults);search.addEventListener('focus',showResults);
+  function showResults(){const q=search.value.trim().toLowerCase();if(q.length<2){results.classList.remove('open');results.innerHTML='';return;}const matches=FAST_SEARCH_INDEX.filter(o=>!ROSTER.picks[playerKey(o.p)]&&(o.name.includes(q)||o.team.includes(q))).slice(0,12).map(o=>o.p);results.innerHTML=matches.map(p=>{const r=recommendationFor(p);return `<div class="auction-result" data-live-key="${encodeURIComponent(playerKey(p))}"><span class="role-badge role-${p.role}">${p.role.toUpperCase()}</span><div class="auction-result-main"><div class="auction-result-name">${esc(p.name)}</div><div class="auction-result-meta">${esc(CAL.teamNames[p.team]||p.team)} · ${tierLabel(r.tier)} ${isSkipped(p)?'· ⏭ SKIP':''}</div></div><div class="auction-result-price"><small>MKT ${r.marketFair}</small><b>TU ${r.fair}</b></div></div>`;}).join('');results.classList.toggle('open',matches.length>0);results.querySelectorAll('[data-live-key]').forEach(el=>el.addEventListener('click',()=>{liveSelectedKey=decodeURIComponent(el.dataset.liveKey);renderAstaTab();setTimeout(()=>document.getElementById('live-price-input')?.focus(),0);}));}
+  let __liveSearchTimer=0;search.addEventListener('input',()=>{clearTimeout(__liveSearchTimer);__liveSearchTimer=setTimeout(showResults,55);});search.addEventListener('focus',showResults);
   results.addEventListener('wheel',e=>e.stopPropagation(),{passive:true});
   results.addEventListener('touchmove',e=>e.stopPropagation(),{passive:true});
   document.querySelectorAll('[data-alt-key]').forEach(btn=>btn.addEventListener('click',()=>{liveSelectedKey=decodeURIComponent(btn.dataset.altKey);renderAstaTab();}));
