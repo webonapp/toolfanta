@@ -1443,6 +1443,20 @@ body.dark .trade-stat,body.dark .trade-package-head,body.dark .trade-fit{backgro
 .uncalled-role-group h4{position:sticky;top:0;z-index:2;margin:0;padding:9px 10px;background:var(--cream);border-bottom:1px solid var(--line);font-family:'Oswald',sans-serif;text-transform:uppercase;color:var(--pitch)}
 .uncalled-role-group h4 small{font:700 10px 'IBM Plex Sans',sans-serif;color:var(--ink-soft);margin-left:5px}
 </style>
+
+<style id="uncalled-role-filter-style">
+.uncalled-role-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 10px;padding:8px;background:var(--cream);border:1px solid var(--line);border-radius:14px}
+.uncalled-role-tabs button{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:9px 13px;font-weight:900;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:7px;transition:.15s ease}
+.uncalled-role-tabs button:hover{transform:translateY(-1px);border-color:rgba(17,94,65,.28)}
+.uncalled-role-tabs button.active{background:var(--pitch);color:#fff;border-color:var(--pitch);box-shadow:0 5px 14px rgba(15,61,46,.16)}
+.uncalled-role-tabs button span{min-width:22px;padding:2px 6px;border-radius:999px;background:rgba(100,116,139,.11);font-family:'IBM Plex Mono',monospace;font-size:9px;text-align:center}
+.uncalled-role-tabs button.active span{background:rgba(255,255,255,.16)}
+.uncalled-filter-title{display:flex;align-items:center;justify-content:space-between;margin:2px 0 12px;padding:0 2px;color:var(--pitch)}
+.uncalled-filter-title b{font-family:'Oswald',sans-serif;text-transform:uppercase;font-size:15px}
+.uncalled-filter-title span{font-size:10px;color:var(--ink-soft);font-weight:800}
+@media(max-width:620px){.uncalled-role-tabs{display:grid;grid-template-columns:repeat(2,1fr)}.uncalled-role-tabs button:first-child{grid-column:1/-1;justify-content:center}.uncalled-role-tabs button{justify-content:space-between}}
+</style>
+
 </head>
 <body>
 
@@ -3034,8 +3048,10 @@ function skipIntelligenceHTML(){
   return `<section class="skip-intelligence"><div class="skip-head"><div><h2>⏭ Skip Intelligence</h2><p>${n} giocator${n===1?'e':'i'} rimast${n===1?'o':'i'} invendut${n===1?'o':'i'}. Lo SKIP non entra nei prezzi battuti e non altera il mercato appreso.</p></div><div class="skip-count">${n}</div></div><div class="skip-cols"><div><h3>🎯 Migliori per la mia rosa</h3><p class="skip-helper">Incrocia necessità per ruolo, budget, replacement value, strategia e qualità.</p>${skipRankingHTML('fit',10)}</div><div><h3>🏆 Migliori in assoluto</h3><p class="skip-helper">Qualità nel ruolo, Player Intelligence, fantamedia, bonus, continuità, disciplina e scarsità.</p>${skipRankingHTML('overall',10)}</div></div><details class="skip-pool-details"><summary>Vedi tutti gli skippati</summary>${skipPoolHTML()}</details></section>`;
 }
 
-function unassignedPlayers(){
-  return DATA.map(p=>({key:playerKey(p),p})).filter(o=>!ROSTER.picks[o.key]);
+let uncalledRole='all';
+function unassignedPlayers(role='all'){
+  return DATA.map(p=>({key:playerKey(p),p}))
+    .filter(o=>!ROSTER.picks[o.key] && (role==='all'||o.p.role===role));
 }
 function uncalledFitScore(p){
   const overall=skippedOverallScore(p),counts=roleCounts('me');
@@ -3065,21 +3081,39 @@ function uncalledReasonChips(p,fit){
   if(isSkipped(p))reasons.push('Già skippato');
   return reasons.slice(0,3);
 }
-function uncalledRankingHTML(mode='fit',limit=12){
-  const rows=unassignedPlayers().map(o=>{const fit=uncalledFitScore(o.p),overall=fit.overall;return {...o,fit,overall,score:mode==='fit'?fit.score:overall.score};})
+function uncalledRankingHTML(mode='fit',limit=12,role=uncalledRole){
+  const rows=unassignedPlayers(role).map(o=>{const fit=uncalledFitScore(o.p),overall=fit.overall;return {...o,fit,overall,score:mode==='fit'?fit.score:overall.score};})
     .filter(o=>mode!=='fit'||o.fit.missing>0||ownerPicks('me').length>=TOTAL_SLOTS)
     .sort((a,b)=>b.score-a.score||b.overall.score-a.overall.score).slice(0,limit);
   if(!rows.length)return '<div class="skip-empty">Nessun giocatore libero compatibile con gli slot rimasti.</div>';
   return `<div class="skip-ranking">${rows.map((o,i)=>{const p=o.p,t=technicalInfo(p),r=o.fit.r,reasons=uncalledReasonChips(p,o.fit);return `<div class="skip-rank-row"><div class="skip-rank-num">${i+1}</div><div class="skip-rank-main"><div class="skip-rank-name">${esc(p.name)} <span class="role-badge role-${p.role}" style="width:20px;height:20px;font-size:9px;">${p.role.toUpperCase()}</span> ${isSkipped(p)?'<small>⏭</small>':''}</div><div class="skip-rank-meta">${esc(CAL.teamNames[p.team]||p.team)} · ${tierLabel(qualityTier(p))} · ${t?`PI ${Math.round(t.score||50)}/100`:'PI N/D'}</div><div class="skip-reasons">${reasons.map(x=>`<span>${esc(x)}</span>`).join('')}</div></div><div class="skip-rank-side"><b>${Math.round(o.score)}</b><span>${mode==='fit'?'FIT':'OVERALL'}</span><small>giusto ${r.fair} · stop ${r.stop}</small><button class="skip-call-btn" data-uncalled-call="${encodeURIComponent(playerKey(p))}">Analizza</button></div></div>`;}).join('')}</div>`;
 }
-function uncalledPoolHTML(){
-  const rows=unassignedPlayers().map(o=>({...o,score:skippedOverallScore(o.p).score})).sort((a,b)=>a.p.roleOrder-b.p.roleOrder||b.score-a.score||a.p.name.localeCompare(b.p.name,'it'));
+function uncalledPoolHTML(role=uncalledRole){
+  const rows=unassignedPlayers(role).map(o=>({...o,score:skippedOverallScore(o.p).score})).sort((a,b)=>a.p.roleOrder-b.p.roleOrder||b.score-a.score||a.p.name.localeCompare(b.p.name,'it'));
   if(!rows.length)return '<div class="skip-empty">Tutti i giocatori del listone sono stati assegnati.</div>';
-  return `<div class="uncalled-pool-scroll">${ROLE_ORDER.map(role=>{const rr=rows.filter(o=>o.p.role===role);if(!rr.length)return '';return `<div class="uncalled-role-group"><h4>${ROLE_NAMES[role]} <small>${rr.length}</small></h4>${rr.map(o=>{const p=o.p,r=recommendationFor(p);return `<div class="skip-pill-row"><span>${teamDot(p.team)}<b>${esc(p.name)}</b> <small>${esc(CAL.teamNames[p.team]||p.team)} · ${isSkipped(p)?'⏭ SKIP · ':''}score ${Math.round(o.score)}</small></span><span><small style="margin-right:8px;">${r.fair}/${r.stop}</small><button data-uncalled-call="${encodeURIComponent(o.key)}">Analizza</button></span></div>`;}).join('')}</div>`;}).join('')}</div>`;
+  const roles=role==='all'?ROLE_ORDER:[role];
+  return `<div class="uncalled-pool-scroll">${roles.map(rrRole=>{const rr=rows.filter(o=>o.p.role===rrRole);if(!rr.length)return '';return `<div class="uncalled-role-group"><h4>${ROLE_NAMES[rrRole]} <small>${rr.length}</small></h4>${rr.map(o=>{const p=o.p,r=recommendationFor(p);return `<div class="skip-pill-row"><span>${teamDot(p.team)}<b>${esc(p.name)}</b> <small>${esc(CAL.teamNames[p.team]||p.team)} · ${isSkipped(p)?'⏭ SKIP · ':''}score ${Math.round(o.score)}</small></span><span><small style="margin-right:8px;">${r.fair}/${r.stop}</small><button data-uncalled-call="${encodeURIComponent(o.key)}">Analizza</button></span></div>`;}).join('')}</div>`;}).join('')}</div>`;
 }
 function uncalledIntelligenceHTML(){
-  const n=unassignedPlayers().length;
-  return `<section class="skip-intelligence uncalled-intelligence"><div class="skip-head"><div><h2>📋 Non chiamati</h2><p>${n} giocatori del listone non sono assegnati a nessuna rosa. Si aggiorna automaticamente dopo ogni acquisto.</p></div><div class="skip-count">${n}</div></div><div class="skip-cols"><div><h3>🎯 Migliori per la mia rosa</h3><p class="skip-helper">Bisogni per ruolo, budget residuo, replacement value, strategia e qualità fantasy.</p>${uncalledRankingHTML('fit',12)}</div><div><h3>🏆 Migliori liberi in assoluto</h3><p class="skip-helper">Valore complessivo del profilo e contesto dell'asta, indipendentemente dai tuoi slot.</p>${uncalledRankingHTML('overall',12)}</div></div><details class="skip-pool-details"><summary>Vedi tutti i ${n} giocatori non assegnati</summary>${uncalledPoolHTML()}</details></section>`;
+  const total=unassignedPlayers('all').length,n=unassignedPlayers(uncalledRole).length;
+  const roleCount=r=>unassignedPlayers(r).length;
+  const roleLabel=uncalledRole==='all'?'Tutti i ruoli':ROLE_NAMES[uncalledRole];
+  return `<section class="skip-intelligence uncalled-intelligence">
+    <div class="skip-head"><div><h2>📋 Non chiamati</h2><p>${total} giocatori del listone non sono assegnati a nessuna rosa. Filtra per ruolo per leggere subito ciò che resta sul tavolo.</p></div><div class="skip-count">${n}</div></div>
+    <div class="uncalled-role-tabs" role="tablist" aria-label="Filtra non chiamati per ruolo">
+      <button type="button" data-uncalled-role="all" class="${uncalledRole==='all'?'active':''}">Tutti <span>${total}</span></button>
+      <button type="button" data-uncalled-role="p" class="${uncalledRole==='p'?'active':''}">P 🧤 <span>${roleCount('p')}</span></button>
+      <button type="button" data-uncalled-role="d" class="${uncalledRole==='d'?'active':''}">D 🛡️ <span>${roleCount('d')}</span></button>
+      <button type="button" data-uncalled-role="c" class="${uncalledRole==='c'?'active':''}">C ⚙️ <span>${roleCount('c')}</span></button>
+      <button type="button" data-uncalled-role="a" class="${uncalledRole==='a'?'active':''}">A 🎯 <span>${roleCount('a')}</span></button>
+    </div>
+    <div class="uncalled-filter-title"><b>${roleLabel}</b><span>${n} disponibili</span></div>
+    <div class="skip-cols">
+      <div><h3>🎯 Migliori per la mia rosa</h3><p class="skip-helper">Bisogni per ruolo, budget residuo, replacement value, strategia e qualità fantasy.</p>${uncalledRankingHTML('fit',12,uncalledRole)}</div>
+      <div><h3>🏆 Migliori liberi in assoluto</h3><p class="skip-helper">Valore complessivo del profilo e contesto dell'asta, indipendentemente dai tuoi slot.</p>${uncalledRankingHTML('overall',12,uncalledRole)}</div>
+    </div>
+    <details class="skip-pool-details"><summary>Vedi tutti i ${n} ${uncalledRole==='all'?'giocatori non assegnati':ROLE_NAMES[uncalledRole].toLowerCase()+' non assegnati'}</summary>${uncalledPoolHTML(uncalledRole)}</details>
+  </section>`;
 }
 function teamOptions(owner){return ROSTER.teams.map(t=>`<option value="${t.id}" ${t.id===owner?'selected':''}>${esc(t.name)}</option>`).join('');}
 function teamNeedsHTML(t){const c=roleCounts(t.id);return `<div class="need-pills">${ROLE_ORDER.map(r=>{const n=ROLE_TARGETS[r]-c[r];return `<span class="need-pill ${n>0?'hot':''}">${r.toUpperCase()} ${Math.max(0,n)}</span>`}).join('')}</div>`;}
@@ -3274,7 +3308,7 @@ function renderAstaTab(){
 
     <section class="control-lower-stack">
       <details class="pro-panel skip-pro-panel" ${skippedPlayers().length?'open':''}><summary><span>⏭ Skip Intelligence</span><small>${skippedPlayers().length} disponibili · occasioni di fine asta</small></summary><div class="pro-panel-body">${skipIntelligenceHTML()}</div></details>
-      <details class="pro-panel uncalled-pro-panel"><summary><span>📋 Non chiamati</span><small>${unassignedPlayers().length} giocatori liberi nel listone</small></summary><div class="pro-panel-body">${uncalledIntelligenceHTML()}</div></details>
+      <details class="pro-panel uncalled-pro-panel"><summary><span>📋 Non chiamati</span><small>${unassignedPlayers('all').length} giocatori liberi nel listone</small></summary><div class="pro-panel-body">${uncalledIntelligenceHTML()}</div></details>
 
       <details class="pro-panel"><summary><span>📈 Mercato & scarsità</span><small>${marketGlobal.toFixed(2)}× globale · ${soldN} prezzi letti</small></summary><div class="pro-panel-body"><div class="market-matrix">${marketMatrixHTML()}</div><div class="scarcity-grid pro-scarcity-grid">${scarcityDashboardHTML()}</div></div></details>
 
@@ -3314,6 +3348,11 @@ function renderAstaTab(){
   document.getElementById('live-skip-btn')?.addEventListener('click',()=>{const p=liveSelectedPlayer();if(!p)return;if(isSkipped(p))unskipPlayer(p);else skipPlayer(p);liveSelectedKey=null;renderAstaTab();});
   document.querySelectorAll('[data-skip-call]').forEach(btn=>btn.addEventListener('click',()=>{liveSelectedKey=decodeURIComponent(btn.dataset.skipCall);renderAstaTab();setTimeout(()=>document.getElementById('live-price-input')?.focus(),0);}));
   document.querySelectorAll('[data-uncalled-call]').forEach(btn=>btn.addEventListener('click',()=>{liveSelectedKey=decodeURIComponent(btn.dataset.uncalledCall);renderAstaTab();setTimeout(()=>document.getElementById('live-price-input')?.focus(),0);}));
+  document.querySelectorAll('[data-uncalled-role]').forEach(btn=>btn.addEventListener('click',()=>{
+    uncalledRole=btn.dataset.uncalledRole||'all';
+    renderAstaTab();
+    setTimeout(()=>document.querySelector('.uncalled-pro-panel')?.setAttribute('open',''),0);
+  }));
   document.querySelectorAll('[data-unskip-key]').forEach(btn=>btn.addEventListener('click',()=>{const p=DATA_BY_KEY[decodeURIComponent(btn.dataset.unskipKey)];if(p){unskipPlayer(p);renderAstaTab();}}));
   document.querySelectorAll('[data-bid-inc]').forEach(btn=>btn.addEventListener('click',()=>{const i=document.getElementById('live-price-input');if(!i)return;i.value=(parseInt(i.value)||0)+Number(btn.dataset.bidInc);updateLivePriceAlert();}));
   document.querySelectorAll('[data-bid-set]').forEach(btn=>btn.addEventListener('click',()=>{const p=liveSelectedPlayer(),i=document.getElementById('live-price-input');if(!p||!i)return;const r=recommendationFor(p);i.value=btn.dataset.bidSet==='stop'?r.stop:r.fair;updateLivePriceAlert();}));
