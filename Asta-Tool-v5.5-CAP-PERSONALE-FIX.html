@@ -1296,6 +1296,10 @@ footer.credit{opacity:.72;padding-top:28px}
 .setup-controls{display:grid;grid-template-columns:minmax(210px,.9fr) minmax(230px,1fr) minmax(145px,.55fr) minmax(210px,.85fr);gap:10px;align-items:end;padding:11px 13px 12px}
 .setup-control-block{display:flex;flex-direction:column;gap:6px;min-width:0}.setup-control-block>span{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.055em;color:var(--ink-soft)}
 .setup-control-block .strategy-select,.setup-budget-block input{width:100%;height:38px;min-width:0;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);padding:0 10px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:700}
+.custom-budget-allocation{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,minmax(110px,1fr)) auto;gap:8px;align-items:end;padding:10px;border:1px solid rgba(90,55,134,.16);border-radius:11px;background:#f8f4fc}
+.custom-budget-allocation[hidden]{display:none!important}.custom-budget-allocation label{display:flex;flex-direction:column;gap:5px;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft)}
+.custom-budget-allocation input{width:100%;height:38px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);padding:0 8px;text-align:center;font:800 13px 'IBM Plex Mono',monospace}
+.custom-budget-total{min-width:145px;height:38px;display:flex;align-items:center;justify-content:center;border-radius:9px;padding:0 10px;background:#fff;color:#5A3786;font-size:11px;font-weight:900;border:1px solid rgba(90,55,134,.16)}.custom-budget-total.invalid{background:var(--red-soft);color:var(--red);border-color:rgba(181,64,43,.25)}
 .setup-budget-block input{font-family:'IBM Plex Mono',monospace;text-align:center;font-size:13px}
 .setup-station .league-mode-row{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin:0}.setup-station .league-mode-btn{min-width:0;height:38px;padding:0 7px;border-radius:9px;font-size:12px}
 .setup-station .team-rename-panel{margin:0!important;border-radius:9px!important;box-shadow:none!important;border:1px solid var(--line)!important;background:var(--card)!important;align-self:end;overflow:visible}
@@ -1333,6 +1337,7 @@ footer.credit{opacity:.72;padding-top:28px}
 @media(max-width:1280px){#asta-body{max-width:1240px!important}.auction-primary-grid{grid-template-columns:minmax(0,1fr) 390px!important}.auction-side-rail{width:390px}.setup-controls{grid-template-columns:minmax(190px,.9fr) minmax(200px,1fr) 130px minmax(185px,.85fr)}.control-budget .planner-row{grid-template-columns:minmax(90px,1fr) minmax(52px,.65fr) minmax(100px,1fr)}}
 @media(max-width:980px){#asta-body{max-width:none!important}.auction-primary-grid{grid-template-columns:1fr!important}.auction-side-rail{position:static!important;width:100%;display:grid!important;grid-template-columns:1fr 1fr;gap:10px}.control-target{grid-column:1/-1}.control-my-roster{grid-column:1/-1}.setup-controls{grid-template-columns:1fr 1fr}.setup-station .team-rename-panel{grid-column:1/-1}.opponent-rosters-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:640px){#asta-body{padding-left:10px!important;padding-right:10px!important}.setup-station{border-radius:12px}.setup-station-head{align-items:flex-start;padding:10px 11px}.setup-station-head span{display:none}.setup-station-head small{font-size:8px}.setup-controls{grid-template-columns:1fr 1fr;gap:8px;padding:9px}.setup-control-block:nth-child(2){grid-column:1/-1}.setup-station .team-rename-panel{grid-column:1/-1}.auction-side-rail{display:flex!important;width:100%}.control-budget .planner-row{grid-template-columns:minmax(82px,1fr) minmax(52px,.75fr) minmax(94px,1fr);gap:6px}.opponent-rosters-grid{grid-template-columns:1fr}.control-section-heading{align-items:flex-start}.control-section-heading>span{flex:none}}
+@media(max-width:640px){.custom-budget-allocation{grid-template-columns:1fr 1fr}.custom-budget-total{grid-column:1/-1}}
 @media(prefers-color-scheme:dark){.setup-station,.setup-station-head{background:#171d1a;border-color:#303934}.setup-station-head{background:#171d1a}.setup-control-block .strategy-select,.setup-budget-block input,.setup-station .team-rename-panel{background:#171d1a!important;border-color:#303934!important;color:#e6eee9}.compact-budget-summary>div{background:#1d2420;border-color:#303934}.opp-roster-head{background:#1d2420}.opp-roster-kpis{background:#303934}.opp-roster-kpis span{background:#171d1a}}
 
 </style>
@@ -1981,7 +1986,12 @@ function normalizeRoster(r){
     x.skippedAt=Number(x.skippedAt)||Date.now(); x.skipSeq=Number(x.skipSeq)||0;
   });
 
-  r.strategyMode = ['balanced','attack','midfield','value'].includes(r.strategyMode) ? r.strategyMode : 'balanced';
+  r.strategyMode = ['balanced','attack','midfield','value','custom'].includes(r.strategyMode) ? r.strategyMode : 'balanced';
+  const defaultCustom={p:Math.round(r.budget*.05),d:Math.round(r.budget*.11),c:Math.round(r.budget*.28)};
+  defaultCustom.a=Math.max(0,r.budget-defaultCustom.p-defaultCustom.d-defaultCustom.c);
+  const incomingCustom=(r.customRoleBudgets&&typeof r.customRoleBudgets==='object')?r.customRoleBudgets:{};
+  r.customRoleBudgets={};
+  ['p','d','c','a'].forEach(role=>{const n=Number(incomingCustom[role]);r.customRoleBudgets[role]=Number.isFinite(n)&&n>=0?Math.round(n):defaultCustom[role];});
   r.fastMode = !!r.fastMode;
   r.ultraRapid = !!r.ultraRapid;
   r.targetBoardOpen = r.targetBoardOpen !== false;
@@ -3380,6 +3390,10 @@ function roleMarketProgress(role){ return clamp(soldEntries(role).length/(ROSTER
 
 function baseStrategyShares(){
   const maps={balanced:{p:.05,d:.11,c:.28,a:.56},attack:{p:.04,d:.08,c:.21,a:.67},midfield:{p:.04,d:.09,c:.36,a:.51},value:{p:.05,d:.12,c:.27,a:.56}};
+  if(ROSTER.strategyMode==='custom'){
+    const amounts=ROSTER.customRoleBudgets||{},sum=ROLE_ORDER.reduce((s,r)=>s+Math.max(0,Number(amounts[r])||0),0);
+    if(sum>0)return Object.fromEntries(ROLE_ORDER.map(r=>[r,Math.max(0,Number(amounts[r])||0)/sum]));
+  }
   return maps[ROSTER.strategyMode]||maps.balanced;
 }
 function adaptiveStrategyPlan(){
@@ -3455,7 +3469,7 @@ function strategicReserve(excludeRole=null,hypotheticalRole=null,hypotheticalPri
 
 const ECONOMIC_PLAN_CACHE=new Map();
 function economicRolePlan(){
-  const __k=`${ENGINE_REV}|${ROSTER.budget}|${ROSTER.strategyMode}|${ownerPicks('me').length}`;
+  const __k=`${ENGINE_REV}|${ROSTER.budget}|${ROSTER.strategyMode}|${JSON.stringify(ROSTER.customRoleBudgets||{})}|${ownerPicks('me').length}`;
   if(ECONOMIC_PLAN_CACHE.has(__k))return ECONOMIC_PLAN_CACHE.get(__k);
   const counts=roleCounts('me'),rem=Math.max(0,budgetRemaining()),plan=adaptiveStrategyPlan(),shares=plan.effective;
   const raw=ROLE_ORDER.map(role=>{
@@ -3949,6 +3963,7 @@ function uncalledCliffInfo(p){
 
 function uncalledStrategyWeight(role){
   const mode=ROSTER.strategyMode||'balanced';
+  if(mode==='custom')return baseStrategyShares()[role]||0;
   if(mode==='attack')return ({p:.06,d:.14,c:.25,a:.55})[role];
   if(mode==='midfield')return ({p:.07,d:.15,c:.40,a:.38})[role];
   if(mode==='value')return ({p:.09,d:.20,c:.31,a:.40})[role];
@@ -4108,7 +4123,7 @@ function renderLivePlayerCard(p){
     </div></details>
   </div>`;
 }
-function strategyLabel(){return ({balanced:'Bilanciata',attack:'Attacco pesante',midfield:'Centrocampo premium',value:'Value / occasioni'})[ROSTER.strategyMode]||'Bilanciata';}
+function strategyLabel(){return ({balanced:'Bilanciata',attack:'Attacco pesante',midfield:'Centrocampo premium',value:'Value / occasioni',custom:'Personalizzata'})[ROSTER.strategyMode]||'Bilanciata';}
 function updateLivePriceAlert(){
   const p=liveSelectedPlayer(),inp=document.getElementById('live-price-input'),box=document.getElementById('live-price-alert'),ab=document.getElementById('live-affordability'),cmd=document.getElementById('live-command');if(!p||!inp||!box)return;const r=recommendationFor(p),v=Math.max(0,Number(inp.value)||0),a=affordabilityFor(p,v);
   if(v<=r.deal){box.className='market-alert ok';box.textContent=`${v} cr.: AFFARE PER TE. Il mercato considera affare fino a ${r.marketDeal}.`;if(cmd){cmd.className='live-command go';cmd.textContent='RILANCIA';}}
@@ -4346,9 +4361,10 @@ function renderAstaTab(){
       <div class="setup-station-head"><div><b>⚙️ Setup asta</b><span>Configurazione della stanza</span></div><small>${ROSTER.leagueSize} squadre · ${esc(strategyLabel())} · ${ROSTER.budget} cr. · piano adattivo</small></div>
       <div class="setup-controls">
         <div class="setup-control-block"><span>Partecipanti</span><div class="league-mode-row">${[8,10,12].map(n=>`<button class="league-mode-btn ${ROSTER.leagueSize===n?'active':''}" data-league-size="${n}">${n}</button>`).join('')}</div></div>
-        <label class="setup-control-block"><span>Strategia personale</span><select id="strategy-mode" class="strategy-select"><option value="balanced" ${ROSTER.strategyMode==='balanced'?'selected':''}>Bilanciata</option><option value="attack" ${ROSTER.strategyMode==='attack'?'selected':''}>Attacco pesante</option><option value="midfield" ${ROSTER.strategyMode==='midfield'?'selected':''}>Centrocampo premium</option><option value="value" ${ROSTER.strategyMode==='value'?'selected':''}>Value / occasioni</option></select></label>
+        <label class="setup-control-block"><span>Strategia personale</span><select id="strategy-mode" class="strategy-select"><option value="balanced" ${ROSTER.strategyMode==='balanced'?'selected':''}>Bilanciata</option><option value="attack" ${ROSTER.strategyMode==='attack'?'selected':''}>Attacco pesante</option><option value="midfield" ${ROSTER.strategyMode==='midfield'?'selected':''}>Centrocampo premium</option><option value="value" ${ROSTER.strategyMode==='value'?'selected':''}>Value / occasioni</option><option value="custom" ${ROSTER.strategyMode==='custom'?'selected':''}>Personalizzata</option></select></label>
         <label class="setup-control-block setup-budget-block"><span>Budget / squadra</span><input type="number" id="budget-total-input" value="${ROSTER.budget}" min="1"></label>
         <details class="team-rename-panel setup-rename"><summary>✏️ Rinomina squadre</summary><div class="team-name-grid">${ROSTER.teams.map((t,i)=>`<label class="team-name-edit"><span>${i+1}</span><input type="text" maxlength="32" class="team-name-input" data-team-id="${esc(t.id)}" value="${esc(t.name)}" placeholder="Nome squadra ${i+1}"></label>`).join('')}<div class="team-name-hint">I nomi restano salvati sul dispositivo.</div></div></details>
+        <div class="custom-budget-allocation" id="custom-budget-allocation" ${ROSTER.strategyMode==='custom'?'':'hidden'}>${[['p','Porta'],['d','Difesa'],['c','Centrocampo'],['a','Attacco']].map(([r,label])=>`<label>${label}<input class="custom-role-budget" data-role="${r}" type="number" min="0" step="1" value="${ROSTER.customRoleBudgets[r]}"></label>`).join('')}<div class="custom-budget-total" id="custom-budget-total"></div></div>
       </div>
     </section>
 
@@ -4395,6 +4411,13 @@ function renderAstaTab(){
   document.querySelectorAll('[data-league-size]').forEach(btn=>btn.addEventListener('click',()=>{setLeagueSize(btn.dataset.leagueSize);renderAstaTab();renderScoreboard();}));
   document.querySelectorAll('.team-name-input').forEach(input=>input.addEventListener('change',()=>{const team=ROSTER.teams.find(t=>t.id===input.dataset.teamId);if(!team)return;const clean=input.value.trim().replace(/\s+/g,' ').slice(0,32);team.name=clean||(team.id==='me'?'La mia squadra':'Squadra '+(ROSTER.teams.indexOf(team)+1));input.value=team.name;saveRosterUI();scheduleAsta();}));
   document.getElementById('strategy-mode')?.addEventListener('change',e=>{ROSTER.strategyMode=e.target.value;saveRoster();renderAstaTab();});
+  const updateCustomBudgetStatus=()=>{
+    const inputs=[...document.querySelectorAll('.custom-role-budget')],box=document.getElementById('custom-budget-total');
+    if(!box)return;const total=inputs.reduce((s,i)=>s+(Math.max(0,parseInt(i.value)||0)),0),delta=ROSTER.budget-total;
+    box.classList.toggle('invalid',delta!==0);box.textContent=delta===0?`Totale ${total} cr. ✓`:(delta>0?`Mancano ${delta} cr.`:`Superi di ${Math.abs(delta)} cr.`);
+  };
+  document.querySelectorAll('.custom-role-budget').forEach(input=>input.addEventListener('change',()=>{const role=input.dataset.role,value=Math.max(0,parseInt(input.value)||0);input.value=value;ROSTER.customRoleBudgets[role]=value;saveRoster();updateCustomBudgetStatus();scheduleAsta();}));
+  updateCustomBudgetStatus();
   document.getElementById('budget-total-input')?.addEventListener('change',e=>{
     const requested=Math.max(1,parseInt(e.target.value)||500);
     const minBudget=Math.max(...ROSTER.teams.map(t=>ownerSpent(t.id)+Math.max(0,TOTAL_SLOTS-ownerPicks(t.id).length)),1);
