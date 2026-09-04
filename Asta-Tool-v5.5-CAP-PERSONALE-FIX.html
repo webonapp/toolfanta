@@ -1740,7 +1740,7 @@ body{background:radial-gradient(900px 360px at 6% -90px,rgba(90,55,134,.11),tran
   <button data-tab="asta">🎯 Asta Live</button>
   <button data-tab="portieri">Griglia Portieri</button>
   <button data-tab="attaccanti">Griglia Attaccanti</button>
-  <button data-tab="top75">⭐ Top Qualità PMA</button>
+  <button data-tab="top75">⭐ Top Qualità–PMA</button>
   <button data-tab="nuovi">🆕 Nuovi Acquisti</button>
   <button data-tab="scambi">🔄 Scambi</button>
   <button data-tab="note">Note e Fonti</button>
@@ -1809,7 +1809,7 @@ body{background:radial-gradient(900px 360px at 6% -90px,rgba(90,55,134,.11),tran
     <div class="top75-hero">
       <div>
         <span class="top75-kicker">QUALITÀ / PREZZO · PMA</span>
-        <h2>Top Qualità PMA</h2>
+        <h2>Top Qualità–PMA</h2>
         <p>I migliori acquisti del listone in rapporto al loro prezzo medio d’asta: qualità, bonus, minutaggio, titolarità, dati tecnici e PMA lavorano insieme.</p>
       </div>
       <div class="top75-count" id="top75-count">–<small>profili</small></div>
@@ -1826,7 +1826,7 @@ body{background:radial-gradient(900px 360px at 6% -90px,rgba(90,55,134,.11),tran
     </div>
     <div class="top75-method">
       <b>Come viene costruito il ranking</b>
-      <span>Il PMA è il costo di partenza. La qualità viene confrontata solo all’interno dello stesso ruolo e considera FVM, rendimento, bonus, presenze, titolarità, dati tecnici e un correttivo minimo dalle prime giornate. I giocatori sono ordinati dal miglior rapporto qualità/prezzo al peggiore.</span>
+      <span>Prima viene la qualità, poi il PMA. Entrano solo profili con qualità e affidabilità sufficienti nel proprio ruolo: FVM, produzione bonus, titolarità, minuti storici, dati avanzati e Player Intelligence. Il PMA rifinisce l’ordine, senza far vincere un giocatore scarso soltanto perché costa poco.</span>
     </div>
     <div id="top75-body"></div>
   </div>
@@ -4698,27 +4698,38 @@ const TOP75_FANTA_DATA=[{"role":"d","rank":1,"name":"Dimarco","team":"INT","scor
   let top75Role='all';
   const roleNames={p:'Portieri',d:'Difensori',c:'Centrocampisti',a:'Attaccanti'};
   const finite=v=>Number.isFinite(Number(v))?Number(v):0;
-  function rolePercentile(p,key){
-    const peers=DATA.filter(x=>x.role===p.role).map(x=>finite(x[key])).sort((a,b)=>a-b);
-    const value=finite(p[key]); if(!peers.length)return .5;
+  function rolePercentileBy(p,getter){
+    const peers=DATA.filter(x=>x.role===p.role).map(getter).map(finite).sort((a,b)=>a-b);
+    const value=finite(getter(p)); if(!peers.length)return .5;
     let below=0; for(const n of peers){if(n<=value)below++;}
     return below/peers.length;
   }
+  function rolePercentile(p,key){return rolePercentileBy(p,x=>x[key]);}
   function rolePmaPercentile(p){return rolePercentile(p,'pmaMarket');}
   function titolaritaScore(p){return ({'Titolare fisso':1,'Titolare':.84,'Titolare/Rotazione':.70,'Rotazione':.55,'Panchina/Riserva':.22,'Riserva':.16})[p.titolarita]??.42;}
   function qualityPmaRows(){
     return DATA.filter(p=>finite(p.pmaMarket)>0).map(p=>{
       const tech=technicalInfo(p),techScore=tech?clamp(finite(tech.score)/100,0,1):.50;
-      const fvm=rolePercentile(p,'fvmC'),bonus=rolePercentile(p,'probBonus'),presence=rolePercentile(p,'pv');
+      const historicalMinutes=finite(p.stats?.minutes);
+      const advanced=p.role==='p'?finite(p.stats?.games):finite(p.stats?.xG90)+finite(p.stats?.xA90);
+      const fvm=rolePercentile(p,'fvmC'),bonus=rolePercentile(p,'probBonus');
+      const minutes=rolePercentileBy(p,x=>finite(x.stats?.minutes));
+      const advancedScore=rolePercentileBy(p,x=>x.role==='p'?finite(x.stats?.games):finite(x.stats?.xG90)+finite(x.stats?.xA90));
       // Le prime giornate sono un riferimento leggero: la FM pesa solo il 5%.
-      const currentFm=rolePercentile(p,'fm'),quote=rolePercentile(p,'qaC');
-      const quality=100*(fvm*.30+techScore*.22+bonus*.18+titolaritaScore(p)*.15+presence*.10+currentFm*.05);
+      const currentFm=rolePercentile(p,'fm'),titolare=titolaritaScore(p);
+      const quality=p.role==='p'
+        ?100*(fvm*.31+titolare*.23+minutes*.19+advancedScore*.10+techScore*.12+currentFm*.05)
+        :100*(fvm*.25+bonus*.18+titolare*.16+minutes*.14+advancedScore*.12+techScore*.10+currentFm*.05);
       const pmaPct=rolePmaPercentile(p);
-      const value=quality*(1.24-.58*pmaPct)+quote*3;
+      // Il PMA sposta l'ordine solo in modo controllato (da -13% a +15%):
+      // un low-cost mediocre non può superare un profilo davvero forte.
+      const value=quality*(.87+.28*(1-pmaPct));
+      const strongSignal=titolare>=.70||fvm>=.78||historicalMinutes>=1800;
+      const eligible=quality>=66&&strongSignal;
       const warning=p.infortunio?'Infortunato: '+p.infortunio:p.squalifica?'Squalificato: '+p.squalifica:p.titolarita==='Riserva'||p.titolarita==='Panchina/Riserva'?'Minutaggio da verificare':p.pmaSpread>=18?'PMA molto variabile':'Profilo senza criticità forte';
       const severity=p.infortunio||p.squalifica||p.titolarita==='Riserva'||p.titolarita==='Panchina/Riserva'?'warn':'';
-      return {p,quality,value,pma:Math.round(finite(p.pmaMarket)),fvm:finite(p.fvmC),fm:finite(p.fm),warning,severity};
-    }).sort((a,b)=>b.value-a.value||b.quality-a.quality||a.pma-b.pma);
+      return {p,quality,value,pma:Math.round(finite(p.pmaMarket)),fvm:finite(p.fvmC),fm:finite(p.fm),warning,severity,eligible};
+    }).filter(r=>r.eligible).sort((a,b)=>b.value-a.value||b.quality-a.quality||a.pma-b.pma);
   }
   function statusHTML(p){
     if(!p)return '';
@@ -4734,9 +4745,9 @@ const TOP75_FANTA_DATA=[{"role":"d","rank":1,"name":"Dimarco","team":"INT","scor
     const rows=qualityPmaRows().filter(r=>(top75Role==='all'||r.p.role===top75Role)&&(!q||(`${r.p.name} ${r.p.team}`).toLowerCase().includes(q)));
     const totalEl=document.getElementById('top75-count');if(totalEl)totalEl.innerHTML=`${rows.length}<small>profili</small>`;
     const title=top75Role==='all'?'Classifica assoluta':roleNames[top75Role];
-    const html=rows.length?`<section class="top75-section"><div class="top75-section-head"><h3>${title}</h3><span>ordinati dal miglior rapporto qualità/PMA al peggiore</span></div><div class="top75-list">${rows.map((r,index)=>{
+    const html=rows.length?`<section class="top75-section"><div class="top75-section-head"><h3>${title}</h3><span>profili top ordinati per indice Qualità–PMA</span></div><div class="top75-list">${rows.map((r,index)=>{
         const p=r.p,target=isTarget(p);
-        const label=r.value>=92?'ECCELLENTE':r.value>=77?'FORTE':r.value>=62?'BUONO':'DA VALUTARE';
+        const label=r.value>=88?'ECCELLENTE':r.value>=78?'FORTE':'BUONO';
         const reason=`Qualità ${r.quality.toFixed(0)}/100 · FVM ${r.fvm||'–'} · ${p.titolarita||'gerarchia N/D'}${finite(p.probBonus)?` · bonus ${finite(p.probBonus).toFixed(0)}%`:''}`;
         return `<article class="top75-row">
           <div class="top75-rank">#${index+1}</div>
@@ -4744,8 +4755,8 @@ const TOP75_FANTA_DATA=[{"role":"d","rank":1,"name":"Dimarco","team":"INT","scor
           <div class="top75-tier">${label}</div>
           <div class="top75-metric"><b>${r.pma}</b><small>PMA</small></div>
           <div class="top75-metric hide-mobile"><b>${r.quality.toFixed(0)}</b><small>Qualità</small></div>
-          <div class="top75-metric hide-mid hide-mobile"><b>${r.value.toFixed(1)}</b><small>Q/P</small></div>
-          <div class="top75-reason"><b>Perché conviene</b>${esc(reason)}</div>
+          <div class="top75-metric hide-mid hide-mobile"><b>${r.value.toFixed(1)}</b><small>Q–PMA</small></div>
+          <div class="top75-reason"><b>Profilo Qualità–PMA</b>${esc(reason)}</div>
           <div class="top75-risk ${r.severity}"><b>Attenzione</b>${esc(r.warning)}</div>
           <div class="top75-actions">
             <button type="button" class="${target?'targeted':''}" data-top75-target="${encodeURIComponent(playerKey(p))}">${target?'★ Target':'☆ Target'}</button>
@@ -4765,7 +4776,7 @@ const TOP75_FANTA_DATA=[{"role":"d","rank":1,"name":"Dimarco","team":"INT","scor
 })();
 </script>
 
-<footer class="app-credits" id="appCredits">Creato da Andrea Tordi e Gabriele Abati</footer><div id="liveSecurityOverlay" aria-hidden="true"><div class="live-security-card" role="dialog" aria-modal="true"><div class="live-security-icon">🔐</div><h2>Accesso Asta Live</h2><p>Inserisci il codice di sicurezza per aprire la sezione Asta Live.</p><input id="liveSecurityCode" type="password" inputmode="numeric" maxlength="4" placeholder="••••"><div id="liveSecurityError"></div><div class="live-security-actions"><button type="button" class="live-security-cancel" id="liveSecurityCancel">Annulla</button><button type="button" class="live-security-enter" id="liveSecurityEnter">Entra</button></div></div></div><div id="topPmaSecurityOverlay" aria-hidden="true"><div class="live-security-card" role="dialog" aria-modal="true"><div class="live-security-icon">⭐</div><h2>Top Qualità PMA</h2><p>Inserisci il codice di sicurezza per aprire questa sezione.</p><input id="topPmaSecurityCode" type="password" inputmode="numeric" maxlength="4" placeholder="••••"><div id="topPmaSecurityError"></div><div class="live-security-actions"><button type="button" class="live-security-cancel" id="topPmaSecurityCancel">Annulla</button><button type="button" class="live-security-enter" id="topPmaSecurityEnter">Entra</button></div></div></div>
+<footer class="app-credits" id="appCredits">Creato da Andrea Tordi e Gabriele Abati</footer><div id="liveSecurityOverlay" aria-hidden="true"><div class="live-security-card" role="dialog" aria-modal="true"><div class="live-security-icon">🔐</div><h2>Accesso Asta Live</h2><p>Inserisci il codice di sicurezza per aprire la sezione Asta Live.</p><input id="liveSecurityCode" type="password" inputmode="numeric" maxlength="4" placeholder="••••"><div id="liveSecurityError"></div><div class="live-security-actions"><button type="button" class="live-security-cancel" id="liveSecurityCancel">Annulla</button><button type="button" class="live-security-enter" id="liveSecurityEnter">Entra</button></div></div></div><div id="topPmaSecurityOverlay" aria-hidden="true"><div class="live-security-card" role="dialog" aria-modal="true"><div class="live-security-icon">⭐</div><h2>Top Qualità–PMA</h2><p>Inserisci il codice di sicurezza per aprire questa sezione.</p><input id="topPmaSecurityCode" type="password" inputmode="numeric" maxlength="4" placeholder="••••"><div id="topPmaSecurityError"></div><div class="live-security-actions"><button type="button" class="live-security-cancel" id="topPmaSecurityCancel">Annulla</button><button type="button" class="live-security-enter" id="topPmaSecurityEnter">Entra</button></div></div></div>
 
 
 <script id="nuovi-acquisti-script">
