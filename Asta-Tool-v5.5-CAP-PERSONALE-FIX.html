@@ -3214,13 +3214,32 @@ function realAuctionPrior(p){
   const fair500=pippo*.65+sueno*.35;
   const spread=Math.abs(pippo-sueno)/Math.max(6,fair500);
   const agreement=clamp(1-spread*.85,.12,1);
-  // Due aste sono un benchmark, non una verità. I prezzi bassi concordi però
-  // impediscono errori evidenti (es. un regista da 1-5 crediti stimato 20+).
-  let weight=(fair500<=12?.50:.40)*agreement;
-  if(Math.max(pippo,sueno)<=8)weight=.62;
-  weight=clamp(weight,.08,.62);
+  // Due aste sono un benchmark, non una verità: diventano però il riferimento
+  // principale iniziale quando un giocatore è presente in entrambe le rilevazioni.
+  // Il motore potrà poi allargarsi se la nuova asta produce evidenze concrete.
+  let weight=fair500<=12?.72:.58;
+  if(agreement>=.72)weight+=.08;
+  else if(agreement<.35)weight-=.08;
+  if(Math.max(pippo,sueno)<=8)weight=.72;
+  weight=clamp(weight,.48,.72);
+  // Il benchmark iniziale perde peso quando la tua stanza ha già prodotto
+  // abbastanza prezzi, con priorità alle vendite nello stesso reparto.
+  const roleSales=typeof soldEntries==='function'?soldEntries(p?.role).length:0;
+  const allSales=typeof soldEntries==='function'?soldEntries().length:0;
+  const liveEvidence=clamp(roleSales/5*.70+allSales/30*.30,0,1);
+  weight*=1-liveEvidence*.58;
   const scale=Math.max(.10,Number(ROSTER?.budget||500)/500);
-  return {fair:fair500*scale,pippo:pippo*scale,sueno:sueno*scale,weight,agreement};
+  return {fair:fair500*scale,pippo:pippo*scale,sueno:sueno*scale,high:Math.max(pippo,sueno)*scale,weight,agreement,liveEvidence};
+}
+function realAuctionGuard(p){
+  const observed=realAuctionPrior(p);
+  if(!observed)return null;
+  // Tetto morbido: tiene conto anche del prezzo più alto tra le due aste, così
+  // non trattiamo una singola asta come una verità matematica, ma fermiamo salti
+  // ingiustificati (es. Bremer a 52 prima che la stanza abbia iniziato a comprare).
+  const varianceRoom=.12+(1-observed.agreement)*.18;
+  const staticCap=Math.max(2,Math.max(observed.high*.98,observed.fair*(1+varianceRoom)));
+  return {...observed,cap:staticCap*(1+observed.liveEvidence*.70)};
 }
 function historicalAnchorMatch(p){
   const n=normalizedPlayerName(p);
@@ -3693,7 +3712,7 @@ function recommendationFor(p){
   if(ownerPicks('me').length===0&&soldEntries().length===0&&ROSTER.strategyMode==='balanced')needFactor=1;
   if(roleLeft===1)needFactor*=1.025;
   if(tierScarcity.level==='CRITICA'&&slotProfile.premiumMissing>0&&['elite','top'].includes(tier))needFactor*=1.045;
-  const phaseFactor=phaseMarketFactor(p,market);
+  const phaseFactor=phaseMarketFactor(p,market),auctionGuard=realAuctionGuard(p);
   const tech=technicalInfo(p),techFactor=technicalFactor(p);
   // Prima calcoliamo il valore NEUTRO della stanza. La concorrenza viene stimata su questo valore,
   // così una necessità personale non può contaminare il mercato generale.
@@ -3708,11 +3727,13 @@ function recommendationFor(p){
   generalMarketValue=anchoredMarketValue(p,generalMarketValue);
   const profileCap=lowBonusProfileCap(p);
   if(profileCap.active)generalMarketValue=Math.min(generalMarketValue,profileCap.cap/1.10);
+  if(auctionGuard)generalMarketValue=Math.min(generalMarketValue,auctionGuard.cap);
   // Solo dopo il valore di stanza applichiamo il fabbisogno/strategia personale.
   let marketValue=generalMarketValue*needFactor;
   const uncappedMarketValue=marketValue;
   marketValue=anchoredMarketValue(p,marketValue);
   if(profileCap.active)marketValue=Math.min(marketValue,profileCap.cap/1.10);
+  if(auctionGuard)marketValue=Math.min(marketValue,auctionGuard.cap);
   const marketFair=Math.max(1,Math.round(generalMarketValue));
   const marketStop=profileCap.active?Math.min(Math.round(profileCap.cap),Math.max(marketFair,Math.round(marketFair*(['elite','top'].includes(tier)?1.13:1.10)))):Math.max(marketFair,Math.round(marketFair*(['elite','top'].includes(tier)?1.13:1.10)));
   const marketDeal=Math.max(1,Math.round(marketFair*(['elite','top'].includes(tier)?.84:.80)));
@@ -3728,6 +3749,7 @@ function recommendationFor(p){
   const factors=[];
   const historicalBand=historicalAuctionBand(p);
   if(historicalBand?.explicit)factors.push({label:`storico aste ${historicalBand.low}-${historicalBand.high}`,value:base/Math.max(1,refPrice(p)),impact:base/Math.max(1,refPrice(p))-1});
+  if(auctionGuard)factors.push({label:`benchmark 2 aste · max ${Math.round(auctionGuard.cap)}`,value:Math.min(1,auctionGuard.cap/Math.max(1,uncappedGeneralPreCompetition)),impact:Math.min(0,auctionGuard.cap/Math.max(1,uncappedGeneralPreCompetition)-1)});
   const add=(label,value)=>{if(Math.abs(value-1)>=.025)factors.push({label,value,impact:value-1});};add('mercato comparabili',localMarketMult);add(`curva ${tierLabel(tier).toLowerCase()} ${p.role.toUpperCase()}`,tierMarket.multiplier);factors.push({label:`tetto ${p.role.toUpperCase()} ${tierLabel(tier).toLowerCase()} ${Math.round(anchorCeiling.ceiling)}`,value:marketValue/Math.max(1,uncappedMarketValue),impact:marketValue/Math.max(1,uncappedMarketValue)-1});if(profileCap.active)factors.push({label:`cap poco bonus ${Math.round(profileCap.cap)}`,value:Math.min(1,profileCap.cap/Math.max(1,uncappedMarketValue)),impact:Math.min(0,profileCap.cap/Math.max(1,uncappedMarketValue)-1)});add('riallineamento globale',marketMult/Math.max(.01,localMarketMult));add('scarsità',scarcity.factor);add('replacement',replacement.factor);add('dato tecnico 25/26',techFactor);add('fase asta',phaseFactor);add('concorrenza',competitionFactor);add(`${ROSTER.leagueSize} squadre`,leagueFactor);add('strategia',needFactor);if(personalCap<marketFair)factors.push({label:'vincolo completamento rosa',value:personalCap/Math.max(1,marketFair),impact:personalCap/Math.max(1,marketFair)-1});factors.sort((a,b)=>Math.abs(b.impact)-Math.abs(a.impact));
   let verdict=personalCap<marketFair?'VALORE DI MERCATO OK, MA NON PER TE: proteggi i crediti necessari a completare la rosa.':'RILANCIA fino al prezzo giusto, poi valuta la stanza.';if(personalCap<marketFair)verdict='VALORE DI MERCATO OK, MA NON PER TE: il tuo tetto deriva dal piano economico della rosa.';else if(stop<=fair)verdict='Budget al limite: questo è già il tuo tetto.';else if(roomRebalance.active && roomRebalance.factor>localMarketMult*1.04)verdict='RIALLINEAMENTO GLOBALE: almeno due prezzi reali hanno superato nettamente le stime e il sistema ha alzato il livello di tutti i ruoli.';else if(market.shock)verdict='CAMBIO REGIME rilevato: i comparabili stanno uscendo molto sopra il riferimento iniziale.';else if(competition==='BASSA')verdict='Poca concorrenza reale: non rilanciare contro te stesso.';else if(scarcity.level==='Alta'&&['elite','top'].includes(tier))verdict='Scarsità alta: puoi usare una parte del margine fino allo STOP.';
   const confidence=Math.round(25+market.confidence*55+Math.min(20,soldEntries(p.role).length*2));
@@ -3738,7 +3760,7 @@ function recommendationFor(p){
     fair=Math.max(1,Math.min(fair,stop));
     deal=Math.max(1,Math.min(deal,fair));
   }
-const result={base,historicalBand,anchorCeiling,profileCap,uncappedMarketValue:Math.round(uncappedMarketValue),uncappedGeneralPreCompetition:Math.round(uncappedGeneralPreCompetition),economic,personalCap,percentile,tier,leagueFactor,market,tierMarket,marketValue:Math.round(marketValue),generalMarketValue:Math.round(generalMarketValue),predictedMultiplier:marketMult,localMarketMult,roomRebalance,globalInfl,roleInfl,recentInfl,progress:auctionProgress(),roleProgress:roleMarketProgress(p.role),scarcity,tierScarcity,replacement,slotProfile,roleLeft,slotsLeft,remaining,reserveOther,affordable,needFactor,marketDeal,marketFair,marketStop,deal,fair,stop,max:stop,low:deal,competition,threats,hot,verdict,confidence:clamp(confidence,20,99),technical:tech,technicalFactor:techFactor,factors};
+const result={base,historicalBand,anchorCeiling,profileCap,auctionGuard,uncappedMarketValue:Math.round(uncappedMarketValue),uncappedGeneralPreCompetition:Math.round(uncappedGeneralPreCompetition),economic,personalCap,percentile,tier,leagueFactor,market,tierMarket,marketValue:Math.round(marketValue),generalMarketValue:Math.round(generalMarketValue),predictedMultiplier:marketMult,localMarketMult,roomRebalance,globalInfl,roleInfl,recentInfl,progress:auctionProgress(),roleProgress:roleMarketProgress(p.role),scarcity,tierScarcity,replacement,slotProfile,roleLeft,slotsLeft,remaining,reserveOther,affordable,needFactor,marketDeal,marketFair,marketStop,deal,fair,stop,max:stop,low:deal,competition,threats,hot,verdict,confidence:clamp(confidence,20,99),technical:tech,technicalFactor:techFactor,factors};
 if(Number.isFinite(result.personalCap)&&result.stop>result.personalCap){result.stop=result.personalCap;result.fair=Math.min(result.fair,result.stop);result.deal=Math.min(result.deal,result.fair);}
   if(result.deal>result.fair)result.deal=result.fair;if(result.fair>result.stop)result.fair=result.stop;
   if(Number.isFinite(result.anchorCeiling?.ceiling)&&result.marketFair>Math.ceil(result.anchorCeiling.ceiling)){result.marketFair=Math.ceil(result.anchorCeiling.ceiling);result.marketStop=Math.min(result.marketStop,Math.ceil(result.anchorCeiling.ceiling));result.marketDeal=Math.min(result.marketDeal,result.marketFair);}
