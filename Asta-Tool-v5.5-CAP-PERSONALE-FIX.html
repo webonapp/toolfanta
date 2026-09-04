@@ -1944,6 +1944,55 @@ body{background:radial-gradient(900px 360px at 6% -90px,rgba(90,55,134,.11),tran
 <div id="custom-tooltip"></div>
 <script>
 const DATA = JSON.parse(document.getElementById('players-data').textContent);
+// Aggiornamento infortuni dal report allegato del 04/09/2026.
+// Il PDF è la fonte corrente: prima puliamo le segnalazioni datate, poi applichiamo i casi attuali.
+const INJURY_UPDATES={
+  'Patric|LAZ':{note:'Problema fisico: out nella 3ª giornata.',return:'Tempi di recupero da valutare.'},
+  'Marusic|LAZ':{note:'Lesione muscolare alla coscia.',return:'Ipotesi rientro da inizio ottobre.'},
+  'Cataldi|LAZ':{note:'Recupero da ernia bilaterale.',return:'Recuperabile da metà settembre.'},
+  'Rovella|LAZ':{note:'Lesione muscolare al polpaccio.',return:'Fuori fino alla prima metà di ottobre.'},
+  'Dele-Bashiru|LAZ':{note:'Problema muscolare alla gamba.',return:'Disponibilità da valutare; possibile metà settembre.'},
+  'Geubbels|LEC':{note:'Distorsione alla caviglia.',return:'Out nel prossimo turno; recupero da valutare.'},
+  'Gabbia|MIL':{note:'Fastidio alla caviglia.',return:'A rischio forfait; da valutare.'},
+  'Ciurria|MON':{note:'Problema fisico.',return:'Forfait nel prossimo turno; da valutare.'},
+  'Pessina|MON':{note:'Lussazione della rotula del ginocchio destro.',return:'Rientro da monitorare; prova a tornare da inizio novembre.'},
+  'Varela G.|MON':{note:'Fastidio muscolare all’adduttore.',return:'Possibile rientro da inizio ottobre.'},
+  'Giovane|NAP':{note:'Operato per ernia inguinale il 3 settembre.',return:'Recuperabile da inizio ottobre.'},
+  'McTominay|NAP':{note:'Intervento di ablazione per lieve aritmia benigna.',return:'Rientro da inizio ottobre.'},
+  'Buongiorno|NAP':{note:'Recupero post intervento al menisco del ginocchio destro.',return:'Possibile rientro da metà novembre.'},
+  'Marianucci|NAP':{note:'Lesione di alto grado al collaterale mediale del ginocchio sinistro.',return:'Stop stimato di almeno due mesi.'},
+  'Nicolussi Caviglia|PAR':{note:'Operato alla coscia destra.',return:'Lungo stop; ipotesi rientro da novembre.'},
+  'Sulemana K.|ATA':{note:'Lesione di secondo grado al collaterale mediale del ginocchio sinistro.',return:'Recuperabile da inizio ottobre.'},
+  'Hien|ATA':{note:'Recupero da lesione del tendine prossimale del semimembranoso.',return:'Pronto a tornare da inizio ottobre.'},
+  'Orsolini|BOL':{note:'Risentimento ai flessori della coscia sinistra.',return:'Recuperabile dalla fine di settembre.'},
+  'El Azzouzi O.|BOL':{note:'Lesione del bicipite femorale della coscia sinistra.',return:'Recuperabile dalla seconda metà di settembre.'},
+  'Trepy|CAG':{note:'Condizioni monitorate dopo ricovero del 16 agosto.',return:'Tempi di recupero da valutare; assente nel prossimo turno.'},
+  'Idrissi R.|CAG':{note:'Recupero dalla rottura del legamento crociato.',return:'Possibile rientro da fine ottobre.'},
+  'Addai|COM':{note:'Rottura del tendine d’Achille.',return:'Tentativo di rientro dalla seconda metà di settembre.'},
+  'Parisi|FIO':{note:'Recupero da infortunio al legamento crociato.',return:'Punta a tornare convocabile da novembre.'},
+  'Walukiewicz|SAS':{note:'Forte trauma contusivo alla gamba destra.',return:'Rientro da valutare; possibile metà settembre.'},
+  'Candè|SAS':{note:'Recupero da rottura del legamento crociato anteriore.',return:'Convocabile dalla metà di settembre.'},
+  'Pieragnolo|SAS':{note:'Recupero da lesione al legamento crociato anteriore.',return:'Possibile rientro da ottobre.'},
+  'Boloca|SAS':{note:'Problema al ginocchio.',return:'Rientro da valutare; possibile fine settembre.'},
+  'Konè I.|SAS':{note:'Recupero post operazione per frattura di tibia e perone.',return:'Possibile rientro da dicembre.'},
+  'Casadei|TOR':{note:'Affaticamento muscolare alla gamba.',return:'A rischio convocazione nel prossimo turno.'},
+  'Palma|UDI':{note:'Problema muscolare all’adduttore della coscia destra.',return:'Fuori fino a metà settembre.'},
+  'Zanoli|UDI':{note:'Recupero da lesione del legamento crociato anteriore.',return:'Possibile rientro da ottobre.'},
+  'Chakvetadze|UDI':{note:'Recupero da frattura al terzo metatarso del piede destro.',return:'Arruolabile dalla prima metà di settembre.'},
+  'Zaniolo|UDI':{note:'Lesione muscolare al bicipite femorale della coscia destra.',return:'Stop di circa 25 giorni; rientro dalla seconda metà di settembre.'},
+  'Moreno M.|VEN':{note:'Problema fisico.',return:'Punta a tornare da inizio settembre; convocazione da valutare.'},
+  'Sverko|VEN':{note:'Operato in estate per un problema all’anca.',return:'Recuperabile da fine ottobre.'},
+  'Franjic|VEN':{note:'Guai fisici dopo l’uscita contro il Milan.',return:'Forfait nel prossimo turno; da valutare.'},
+  'Adorante|VEN':{note:'Operato alla schiena a fine luglio.',return:'Tentativo di rientro da ottobre.'},
+  'Venturino|GEN':{note:'Operato al tendine rotuleo; in fase di recupero.',return:'Assente nel prossimo turno; ipotesi rientro da fine ottobre.'},
+  'Havel|GEN':{note:'Fastidio muscolare alla gamba.',return:'Tentativo di rientro dalla 4ª giornata.'},
+  'Yildiz|JUV':{note:'Operato per frattura alla base del V metatarso del piede sinistro.',return:'Stop di circa tre mesi; ipotesi rientro da fine novembre.'},
+  'Ekhator|JUV':{note:'Lesione di medio grado del semitendinoso.',return:'Nuovi esami a metà settembre; possibile rientro da fine ottobre.'},
+  'Thuram K.|JUV':{note:'Operato per sindrome femoro-rotulea.',return:'Lungo stop; ipotesi rientro da gennaio.'},
+  'Cabal|JUV':{note:'Lesione di basso grado del semimembranoso della coscia sinistra.',return:'Recuperabile dalla seconda metà di settembre.'}
+};
+for(const p of DATA){p.infortunio='';p.rientro=null;}
+for(const p of DATA){const update=INJURY_UPDATES[`${p.name}|${p.team}`];if(update){p.infortunio=update.note;p.rientro=update.return;}}
 const CAL = JSON.parse(document.getElementById('calendar-data').textContent);
 const TECH_DATA = JSON.parse(document.getElementById('player-intelligence-data')?.textContent || '{}');
 const ADV_DATA = JSON.parse(document.getElementById('advanced-intelligence-data')?.textContent || '{}');
@@ -4743,13 +4792,14 @@ const TOP75_FANTA_DATA=[{"role":"d","rank":1,"name":"Dimarco","team":"INT","scor
     const q=(document.getElementById('top75-search')?.value||'').trim().toLowerCase();
     const rows=qualityPmaRows().filter(r=>(top75Role==='all'||r.p.role===top75Role)&&(!q||(`${r.p.name} ${r.p.team}`).toLowerCase().includes(q)));
     const totalEl=document.getElementById('top75-count');if(totalEl)totalEl.innerHTML=`${rows.length}<small>profili</small>`;
-    const title=top75Role==='all'?'Classifica assoluta':roleNames[top75Role];
-    const html=rows.length?`<section class="top75-section"><div class="top75-section-head"><h3>${title}</h3><span>occasioni ordinate per potenziale bonus rispetto al PMA</span></div><div class="top75-list">${rows.map((r,index)=>{
+    const title=top75Role==='all'?'Tutte le occasioni':roleNames[top75Role];
+    const buckets=top75Role==='all'?[{title:'🔥 Occasioni da puntare',hint:'Potenziale bonus alto e PMA ancora favorevole.',min:72},{title:'🎯 Upside sotto PMA',hint:'Potenziale concreto con prezzo da battere.',min:66,max:72},{title:'🎲 Scommesse bonus',hint:'Più rischio, ma upside da considerare se il prezzo resta basso.',min:0,max:66}]:[{title,hint:'Ordinati per potenziale bonus rispetto al PMA.',min:0}];
+    const html=rows.length?buckets.map(bucket=>{const bucketRows=rows.filter(r=>r.value>=bucket.min&&(bucket.max===undefined||r.value<bucket.max));if(!bucketRows.length)return '';return `<section class="top75-section"><div class="top75-section-head"><h3>${bucket.title}</h3><span>${bucket.hint}</span></div><div class="top75-list">${bucketRows.map(r=>{
         const p=r.p,target=isTarget(p);
         const label=r.value>=84?'OCCASIONE':r.value>=72?'UPSIDE':'INTERESSANTE';
         const reason=`${r.historicalGoals}+${r.historicalAssists} G+A storici · potenziale bonus ${r.quality.toFixed(0)}/100 · ${p.titolarita||'gerarchia N/D'}${finite(p.probBonus)?` · bonus ${finite(p.probBonus).toFixed(0)}%`:''}`;
         return `<article class="top75-row">
-          <div class="top75-rank">#${index+1}</div>
+          <div class="top75-rank">#${rows.indexOf(r)+1}</div>
           <div class="top75-player"><b>${esc(p.name)}${statusHTML(p)}</b><span>${esc(CAL.teamNames[p.team]||p.team)} · ${esc(p.roleLabel)}</span></div>
           <div class="top75-tier">${label}</div>
           <div class="top75-metric"><b>${r.pma}</b><small>PMA</small></div>
@@ -4762,7 +4812,7 @@ const TOP75_FANTA_DATA=[{"role":"d","rank":1,"name":"Dimarco","team":"INT","scor
             <button type="button" class="primary" data-top75-live="${encodeURIComponent(playerKey(p))}">Asta Live</button>
           </div>
         </article>`;
-      }).join('')}</div></section>`:'';
+      }).join('')}</div></section>`;}).join(''):'';
     body.innerHTML=html || '<div class="top75-empty">Nessun profilo trovato con questi filtri.</div>';
     body.querySelectorAll('[data-top75-target]').forEach(btn=>btn.addEventListener('click',()=>{ const p=DATA_BY_KEY[decodeURIComponent(btn.dataset.top75Target)]; if(!p)return; toggleTarget(p); renderTop75Fanta(); }));
     body.querySelectorAll('[data-top75-live]').forEach(btn=>btn.addEventListener('click',()=>{ const key=decodeURIComponent(btn.dataset.top75Live); if(!DATA_BY_KEY[key])return; liveSelectedKey=key; switchTab('asta'); renderAstaTab(); setTimeout(()=>document.getElementById('live-price-input')?.focus(),0); }));
