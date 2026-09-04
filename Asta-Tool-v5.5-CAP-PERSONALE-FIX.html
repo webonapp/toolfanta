@@ -933,6 +933,9 @@ nav.tabs button.active{color:#fff;background:rgba(255,255,255,.055);border-botto
 .live-player-head{padding-bottom:13px;border-bottom:1px solid var(--pro-border)}
 .live-player-name{font-size:28px;line-height:1;color:#103d2c;letter-spacing:.025em}
 .live-player-team{font-size:11.5px;margin-top:6px}
+.live-name-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.live-pma-badge{display:inline-flex;align-items:center;gap:4px;padding:5px 8px;border-radius:999px;background:#f1eafb;border:1px solid rgba(91,55,135,.20);color:#5b3787;font:800 10px/1 'IBM Plex Sans',sans-serif;letter-spacing:.045em;white-space:nowrap}
+.live-pma-badge small{font-size:9px;font-weight:700;color:#826aa1;letter-spacing:0}
 .market-confidence{background:rgba(106,65,156,.07);border:1px solid rgba(106,65,156,.11);color:#245c46;padding:6px 10px}
 
 .price-trio{gap:10px;margin:15px 0 12px}
@@ -4189,7 +4192,7 @@ function renderLivePlayerCard(p){
   const deltaLabel=deltaFair===0?'Allineato al mercato':deltaFair<0?`Per te −${Math.abs(deltaFair)} sul giusto`:`Per te +${deltaFair} sul giusto`;
   const tech=technicalInfo(p), techSummary=tech?`PI ${Math.round(tech.score||50)}/100`:'PI N/D';
   return `<div class="live-player-card pro-player-card" id="live-player-card">
-    <div class="live-player-head pro-player-head"><div><div class="live-player-name">${esc(p.name)}</div><div class="live-player-team">${teamDot(p.team)}${esc(CAL.teamNames[p.team]||p.team)} · ${esc(p.roleLabel)} · ${tierLabel(r.tier)} · P${Math.round(r.percentile*100)}</div></div><div class="pro-head-badges"><span class="market-confidence ${confClass}"><i></i>${r.confidence}% conf.</span><span class="pro-delta-badge ${deltaFair<0?'protect':deltaFair>0?'push':'neutral'}">${deltaLabel}</span></div></div>
+    <div class="live-player-head pro-player-head"><div><div class="live-name-row"><div class="live-player-name">${esc(p.name)}</div>${Number(p.pmaMarket)>0?`<span class="live-pma-badge" title="Prezzo Medio Aste FantaLab, normalizzato su budget 500">PMA ${Math.round(p.pmaMarket)} <small>${Number(p.pmaSources)||0} ril.</small></span>`:''}</div><div class="live-player-team">${teamDot(p.team)}${esc(CAL.teamNames[p.team]||p.team)} · ${esc(p.roleLabel)} · ${tierLabel(r.tier)} · P${Math.round(r.percentile*100)}</div></div><div class="pro-head-badges"><span class="market-confidence ${confClass}"><i></i>${r.confidence}% conf.</span><span class="pro-delta-badge ${deltaFair<0?'protect':deltaFair>0?'push':'neutral'}">${deltaLabel}</span></div></div>
 
     <div class="pro-dual-pricing">
       <section class="price-trio-section market pro-price-panel"><div class="price-trio-title"><span>🌐 ASTA GENERALE</span><small>prezzo della stanza, non dipende dalla tua rosa</small></div><div class="price-trio"><div class="price-zone deal"><b>${r.marketDeal}</b><span>Affare</span></div><div class="price-zone fair"><b>${r.marketFair}</b><span>Giusto</span></div><div class="price-zone stop"><b>${r.marketStop}</b><span>Stop mercato</span></div></div></section>
