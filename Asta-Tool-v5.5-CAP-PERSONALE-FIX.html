@@ -1745,7 +1745,7 @@ body{background:radial-gradient(900px 360px at 6% -90px,rgba(90,55,134,.11),tran
   <button data-tab="asta">🎯 Asta Live</button>
   <button data-tab="portieri">Griglia Portieri</button>
   <button data-tab="attaccanti">Griglia Attaccanti</button>
-  <button data-tab="top75">⭐ Top Qualità–PMA</button>
+  <button data-tab="top75">AT Team</button>
   <button data-tab="nuovi">🆕 Nuovi Acquisti</button>
   <button data-tab="scambi">🔄 Scambi</button>
   <button data-tab="note">Note e Fonti</button>
@@ -1814,7 +1814,7 @@ body{background:radial-gradient(900px 360px at 6% -90px,rgba(90,55,134,.11),tran
     <div class="top75-hero">
       <div>
         <span class="top75-kicker">QUALITÀ / PREZZO · PMA</span>
-        <h2>Top Qualità–PMA</h2>
+        <h2>AT Team</h2>
         <p>I profili con il maggior potenziale bonus rispetto al PMA: qui conta trovare il prossimo Simeone prima che venga pagato come Kean.</p>
       </div>
       <div class="top75-count" id="top75-count">–<small>profili</small></div>
@@ -5155,6 +5155,7 @@ const NUOVI_ACQUISTI_DATA=[{"rank":1,"name":"Vicario","role":"p","team":"JUV","t
   function enter(){const i=I(),e=document.getElementById('topPmaSecurityError');if(!i)return;if(i.value===CODE){window.__topPmaAuthorized=true;closeGate();requestAnimationFrame(()=>{if(typeof switchTab==='function')switchTab('top75');});}else{if(e)e.textContent='Codice non corretto';i.select();}}
   window.__topPmaGate=openGate;
   document.addEventListener('DOMContentLoaded',()=>{
+    document.querySelector('#topPmaSecurityOverlay h2')?.replaceChildren('AT Team');
     document.getElementById('topPmaSecurityEnter')?.addEventListener('click',enter);
     document.getElementById('topPmaSecurityCancel')?.addEventListener('click',closeGate);
     I()?.addEventListener('keydown',e=>{if(e.key==='Enter')enter();if(e.key==='Escape')closeGate();});
