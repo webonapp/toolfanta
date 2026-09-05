@@ -4286,15 +4286,6 @@ function renderLivePlayerCard(p){
       <section class="price-trio-section personal pro-price-panel"><div class="price-trio-title"><span>👤 PER LA MIA ROSA</span><small>budget, slot, strategia e bisogno reale</small></div><div class="price-trio"><div class="price-zone deal"><b>${r.deal}</b><span>Affare per me</span></div><div class="price-zone fair"><b>${r.fair}</b><span>Giusto per me</span></div><div class="price-zone stop"><b>${r.stop}</b><span>Stop personale</span></div></div></section>
     </div>
 
-    <div class="pro-key-signals">
-      <div class="pro-signal"><span>Concorrenza</span><b class="${compClass}">${r.competition}</b><small>${threats.length?threats.map(t=>esc(t.name)).join(', '):'nessun rivale critico'}</small></div>
-      <div class="pro-signal"><span>Scarsità</span><b>${r.scarcity.level}</b><small>${r.scarcity.remaining} comparabili · domanda ${r.scarcity.demand}</small></div>
-      <div class="pro-signal"><span>Replacement</span><b>${r.replacement.gap.toFixed(1)}%</b><small>${repl}</small></div>
-      <div class="pro-signal"><span>Player Intel</span><b>${techSummary}</b><small>${tech?.negative?.[0]?esc(String(tech.negative[0]).replace(/^⚠️\s*/,'')):'nessuna red flag forte'}</small></div>
-      <div class="pro-signal wait-risk"><span>Rischio attesa</span><b class="${wait.level==='ALTO'?'high':wait.level==='MEDIO'?'medium':'low'}">${Math.round(wait.score)}/100</b><small>${wait.alternatives.similar} alternative simili · ${wait.serious} rivali forti</small></div>
-      <div class="pro-signal"><span>Slot strategico</span><b>${r.slotProfile.phase==='premium'?'PREMIUM':'COMPLETAMENTO'}</b><small>${r.slotProfile.premiumMissing} premium mancanti · ${r.roleLeft} slot ruolo</small></div>
-    </div>
-
     ${regime}
     ${advisorBannerHTML(p,price)}
     ${simulatePurchaseHTML(p,price)}
@@ -4315,8 +4306,16 @@ function renderLivePlayerCard(p){
 
     <details class="pro-analysis-details"><summary>Analisi avanzata <span>mercato · dati tecnici · scenari · piano B</span></summary><div class="pro-analysis-body">
       ${technicalInsightHTML(p)}
-      <div class="live-insight-grid"><div class="insight-card"><div class="ik">Mercato reale</div><div class="iv">${r.predictedMultiplier.toFixed(2)}×</div><div class="is">Comparabili ${r.market.multiplier.toFixed(2)}× · fascia ${r.tierMarket.multiplier.toFixed(2)}× · ruolo ${r.roleInfl.toFixed(2)}× · stanza ${r.roomRebalance.factor.toFixed(2)}×.</div><div class="market-tier-strip"><span>Tetto fascia ${Math.round(r.anchorCeiling.ceiling)} cr.</span><span>${r.anchorCeiling.raised?'rialzato da vendite reali':'ancora storico'}</span><span>${r.anchorCeiling.above||0} sopra anchor</span></div></div><div class="insight-card"><div class="ik">Budget protetto</div><div class="iv">${r.reserveOther}</div><div class="is">Crediti riservati agli altri slot.</div></div><div class="insight-card"><div class="ik">Slot ruolo</div><div class="iv">${r.roleLeft}</div><div class="is">Ancora da completare nella tua rosa.</div></div><div class="insight-card"><div class="ik">Fase asta</div><div class="iv">${Math.round(r.progress*100)}%</div><div class="is">Ruolo ${Math.round(r.roleProgress*100)}% completato nella stanza.</div></div></div>
+      <div class="pro-key-signals">
+        <div class="pro-signal"><span>Concorrenza</span><b class="${compClass}">${r.competition}</b><small>${threats.length?threats.map(t=>esc(t.name)).join(', '):'nessun rivale critico'}</small></div>
+        <div class="pro-signal"><span>Scarsità</span><b>${r.scarcity.level}</b><small>${r.scarcity.remaining} comparabili · domanda ${r.scarcity.demand}</small></div>
+        <div class="pro-signal"><span>Replacement</span><b>${r.replacement.gap.toFixed(1)}%</b><small>${repl}</small></div>
+        <div class="pro-signal"><span>Player Intel</span><b>${techSummary}</b><small>${tech?.negative?.[0]?esc(String(tech.negative[0]).replace(/^⚠️\s*/,'')):'nessuna red flag forte'}</small></div>
+        <div class="pro-signal wait-risk"><span>Rischio attesa</span><b class="${wait.level==='ALTO'?'high':wait.level==='MEDIO'?'medium':'low'}">${Math.round(wait.score)}/100</b><small>${wait.alternatives.similar} alternative simili · ${wait.serious} rivali forti</small></div>
+        <div class="pro-signal"><span>Slot strategico</span><b>${r.slotProfile.phase==='premium'?'PREMIUM':'COMPLETAMENTO'}</b><small>${r.slotProfile.premiumMissing} premium mancanti · ${r.roleLeft} slot ruolo</small></div>
+      </div>
       <div class="projection-grid"><div class="projection-box"><b>${proj.safe}/100</b><span>Rosa prudente</span></div><div class="projection-box"><b>${proj.expected}/100</b><span>Rosa attesa</span></div><div class="projection-box"><b>${proj.aggressive}/100</b><span>Scenario aggressivo</span></div></div>
+      <div class="live-insight-grid"><div class="insight-card"><div class="ik">Mercato reale</div><div class="iv">${r.predictedMultiplier.toFixed(2)}×</div><div class="is">Comparabili ${r.market.multiplier.toFixed(2)}× · fascia ${r.tierMarket.multiplier.toFixed(2)}× · ruolo ${r.roleInfl.toFixed(2)}× · stanza ${r.roomRebalance.factor.toFixed(2)}×.</div><div class="market-tier-strip"><span>Tetto fascia ${Math.round(r.anchorCeiling.ceiling)} cr.</span><span>${r.anchorCeiling.raised?'rialzato da vendite reali':'ancora storico'}</span><span>${r.anchorCeiling.above||0} sopra anchor</span></div></div><div class="insight-card"><div class="ik">Budget protetto</div><div class="iv">${r.reserveOther}</div><div class="is">Crediti riservati agli altri slot.</div></div><div class="insight-card"><div class="ik">Slot ruolo</div><div class="iv">${r.roleLeft}</div><div class="is">Ancora da completare nella tua rosa.</div></div><div class="insight-card"><div class="ik">Fase asta</div><div class="iv">${Math.round(r.progress*100)}%</div><div class="is">Ruolo ${Math.round(r.roleProgress*100)}% completato nella stanza.</div></div></div>
       ${alts.length?`<div class="live-risk"><b>Piano B:</b><div class="alt-grid">${alts.map(o=>`<button class="alt-btn" data-alt-key="${encodeURIComponent(playerKey(o.p))}"><b>${esc(o.p.name)}</b><span>giusto ${o.r.fair} · stop ${o.r.stop}</span></button>`).join('')}</div></div>`:''}
       ${strategyPlanHTML()}
     </div></details>
