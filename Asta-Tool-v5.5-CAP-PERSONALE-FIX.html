@@ -5078,7 +5078,7 @@ const NUOVI_ACQUISTI_DATA=[{"rank":1,"name":"Vicario","role":"p","team":"JUV","t
   function playerTradeData(p){
     const r=recommendationFor(p),t=technicalInfo(p);
     const live=currentSeasonSignal(p);
-    return {p,r,quality:playerQuality(p),market:r.marketFair||r.fair||refPrice(p),tech:t?.score??50,fm:Number(p.fm)||0,bonus:Number(p.probBonus)||0,pv:Number(p.pv)||0,xfm:live.xfm,expectedBonus:live.expectedBonus,games:live.games};
+    return {p,r,quality:playerQuality(p),tech:t?.score??50,fm:Number(p.fm)||0,bonus:Number(p.probBonus)||0,pv:Number(p.pv)||0,xfm:live.xfm,expectedBonus:live.expectedBonus,games:live.games};
   }
   function avg(a,k){return a.length?a.reduce((s,x)=>s+(Number(x[k])||0),0)/a.length:0}
   function roleCountsAfter(outgoing,incoming){
@@ -5109,7 +5109,7 @@ const NUOVI_ACQUISTI_DATA=[{"rank":1,"name":"Vicario","role":"p","team":"JUV","t
     return {score:clamp(penalty,-30,30),notes,before,after};
   }
   function packageHTML(title,arr){
-    return `<div class="trade-package"><div class="trade-package-head">${esc(title)}</div>${arr.map(o=>{const live=o.xfm===null?'':` · xFM ${o.xfm.toFixed(2)} · EB ${o.expectedBonus>=0?'+':''}${o.expectedBonus.toFixed(2)}`;return `<div class="trade-player-row"><div><b>${esc(o.p.name)}</b><span>${esc(CAL.teamNames[o.p.team]||o.p.team)} · ${o.p.role.toUpperCase()} · PI ${Math.round(o.tech)}/100 · FM ${o.fm?o.fm.toFixed(2):'–'}${live}</span></div><div class="trade-player-value">${Math.round(o.market)}<small> cr. MKT</small></div></div>`;}).join('')}</div>`;
+    return `<div class="trade-package"><div class="trade-package-head">${esc(title)}</div>${arr.map(o=>{const live=o.xfm===null?'':` · xFM ${o.xfm.toFixed(2)} · EB ${o.expectedBonus>=0?'+':''}${o.expectedBonus.toFixed(2)}`;return `<div class="trade-player-row"><div><b>${esc(o.p.name)}</b><span>${esc(CAL.teamNames[o.p.team]||o.p.team)} · ${o.p.role.toUpperCase()} · PI ${Math.round(o.tech)}/100 · FM ${o.fm?o.fm.toFixed(2):'–'}${live}</span></div><div class="trade-player-value">${Math.round(o.quality)}<small> qualità</small></div></div>`;}).join('')}</div>`;
   }
   function incomingRiskNotes(incoming){
     const notes=[];
@@ -5136,8 +5136,6 @@ const NUOVI_ACQUISTI_DATA=[{"rank":1,"name":"Vicario","role":"p","team":"JUV","t
     const incoming=otherKeys.map(k=>DATA_BY_KEY[k]).filter(Boolean).map(playerTradeData);
     if(outgoing.length!==tradeMode||incoming.length!==tradeMode)return;
 
-    const outMarket=outgoing.reduce((s,x)=>s+x.market,0), inMarket=incoming.reduce((s,x)=>s+x.market,0);
-    const marketPct=outMarket?((inMarket/outMarket)-1)*100:0;
     const qDelta=avg(incoming,'quality')-avg(outgoing,'quality');
     const fmDelta=avg(incoming,'fm')-avg(outgoing,'fm');
     const xfmDelta=avg(incoming.filter(x=>x.xfm!==null),'xfm')-avg(outgoing.filter(x=>x.xfm!==null),'xfm');
@@ -5145,10 +5143,8 @@ const NUOVI_ACQUISTI_DATA=[{"rank":1,"name":"Vicario","role":"p","team":"JUV","t
     const bonusDelta=avg(incoming,'bonus')-avg(outgoing,'bonus');
     const techDelta=avg(incoming,'tech')-avg(outgoing,'tech');
     const fit=roleFit(outgoing,incoming);
-    const paidOut=outgoing.reduce((s,o)=>s+(Number((ROSTER.picks[playerKey(o.p)]||{}).price)||0),0),paidIn=incoming.reduce((s,o)=>s+(Number((ROSTER.picks[playerKey(o.p)]||{}).price)||0),0);
-    const paidContext=(paidOut&&paidIn)?clamp(((paidIn/paidOut)-1)*100,-40,40):0;
-    const neutralEdge=clamp(marketPct*.51+qDelta*.31+paidContext*.12+clamp(xfmDelta*5,-5,5)*.06,-60,60);
-    const finalEdge=clamp(marketPct*.38+qDelta*.26+fit.score*.23+clamp(fmDelta*5,-7,7)*.07+clamp(xfmDelta*5,-5,5)*.04+clamp(expectedBonusDelta*7,-4,4)*.02,-60,60);
+    const neutralEdge=clamp(qDelta*.72+clamp(xfmDelta*5,-5,5)*.18+clamp(expectedBonusDelta*7,-4,4)*.10,-60,60);
+    const finalEdge=clamp(qDelta*.50+fit.score*.31+clamp(fmDelta*5,-7,7)*.09+clamp(xfmDelta*5,-5,5)*.06+clamp(expectedBonusDelta*7,-4,4)*.04,-60,60);
 
     let verdict,cls,summary;
     if(finalEdge>=9){verdict='LO FAREI';cls='yes';summary='Lo scambio migliora in modo concreto il pacchetto complessivo e la tua rosa.';}
@@ -5157,13 +5153,11 @@ const NUOVI_ACQUISTI_DATA=[{"rank":1,"name":"Vicario","role":"p","team":"JUV","t
     else if(finalEdge>-9){verdict='TENDENZIALMENTE NO';cls='no';summary='Cedi leggermente più di quanto ricevi oppure perdi funzionalità nella rosa.';}
     else{verdict='NON LO FAREI';cls='no';summary='Il pacchetto che cedi è superiore o il cambio peggiora sensibilmente la tua struttura.';}
 
-    let winner=neutralEdge>5?'CI GUADAGNI TU':neutralEdge<-5?'CI GUADAGNA L’ALTRA SQUADRA':'VALORE QUASI PARI';
+    let winner=neutralEdge>5?'PACCHETTO IN ENTRATA MIGLIORE':neutralEdge<-5?'PACCHETTO IN USCITA MIGLIORE':'QUALITÀ QUASI PARI';
     let fitLabel=fit.score>4?'PIÙ FUNZIONALE':fit.score<-4?'MENO FUNZIONALE':'FUNZIONALITÀ SIMILE';
     let fitIcon=fit.score>4?'✅':fit.score<-4?'⚠️':'⚖️';
 
     const pros=[],cons=[];
-    if(marketPct>=4)pros.push(`Ricevi circa il ${Math.round(marketPct)}% di valore di mercato in più (${Math.round(inMarket)} vs ${Math.round(outMarket)} cr.).`);
-    if(marketPct<=-4)cons.push(`Cedi circa il ${Math.round(Math.abs(marketPct))}% di valore di mercato in più (${Math.round(outMarket)} vs ${Math.round(inMarket)} cr.).`);
     if(qDelta>=3)pros.push(`Qualità fantasy media superiore di ${qDelta.toFixed(1)} punti.`);
     if(qDelta<=-3)cons.push(`Qualità fantasy media inferiore di ${Math.abs(qDelta).toFixed(1)} punti.`);
     if(fmDelta>=.18)pros.push(`Fantamedia del pacchetto in entrata migliore (+${fmDelta.toFixed(2)}).`);
@@ -5188,14 +5182,13 @@ const NUOVI_ACQUISTI_DATA=[{"rank":1,"name":"Vicario","role":"p","team":"JUV","t
     result.innerHTML=`<div class="trade-verdict ${cls}">
       <div class="trade-verdict-top">
         <div class="trade-verdict-main"><small>Verdetto del modello</small><h3>${verdict}</h3><p>${esc(summary)}</p></div>
-        <div class="trade-stat"><b>${Math.round(inMarket)}</b><small>Valore che ricevi</small></div>
-        <div class="trade-stat"><b>${Math.round(outMarket)}</b><small>Valore che cedi</small></div>
+        <div class="trade-stat"><b>${avg(incoming,'quality').toFixed(0)}</b><small>Qualità che ricevi</small></div>
+        <div class="trade-stat"><b>${avg(outgoing,'quality').toFixed(0)}</b><small>Qualità che cedi</small></div>
         <div class="trade-stat"><b>${finalEdge>=0?'+':''}${finalEdge.toFixed(1)}</b><small>Trade edge</small></div>
       </div>
       <div class="trade-winner">
         <span class="trade-chip ${neutralEdge>5?'good':neutralEdge<-5?'bad':'warn'}">${winner}</span>
         <span class="trade-chip ${fit.score>4?'good':fit.score<-4?'bad':'warn'}">${fitLabel}</span>
-        <span class="trade-chip">Mercato ${marketPct>=0?'+':''}${marketPct.toFixed(1)}%</span>
         <span class="trade-chip">Qualità ${qDelta>=0?'+':''}${qDelta.toFixed(1)}</span>
       </div>
       <div class="trade-players-compare">${packageHTML('Tu cedi',outgoing)}${packageHTML('Tu ricevi',incoming)}</div>
@@ -5220,20 +5213,18 @@ const NUOVI_ACQUISTI_DATA=[{"rank":1,"name":"Vicario","role":"p","team":"JUV","t
     if(new Set([...gives,...gets]).size!==gives.length+gets.length){alert('Non puoi selezionare lo stesso giocatore due volte.');return;}
     const outgoing=gives.map(k=>DATA_BY_KEY[k]).filter(Boolean).map(playerTradeData),incoming=gets.map(k=>DATA_BY_KEY[k]).filter(Boolean).map(playerTradeData);
     if(outgoing.length!==generalTradeMode||incoming.length!==generalTradeMode){renderGeneralTradePanel(false);return;}
-    const outMarket=outgoing.reduce((s,x)=>s+x.market,0),inMarket=incoming.reduce((s,x)=>s+x.market,0);
-    const marketPct=outMarket?((inMarket/outMarket)-1)*100:0;
     const qualityDelta=avg(incoming,'quality')-avg(outgoing,'quality'),techDelta=avg(incoming,'tech')-avg(outgoing,'tech'),fmDelta=avg(incoming,'fm')-avg(outgoing,'fm');
     const xfmDelta=avg(incoming.filter(x=>x.xfm!==null),'xfm')-avg(outgoing.filter(x=>x.xfm!==null),'xfm');
     const expectedBonusDelta=avg(incoming.filter(x=>x.expectedBonus!==null),'expectedBonus')-avg(outgoing.filter(x=>x.expectedBonus!==null),'expectedBonus');
-    const edge=clamp(marketPct*.58+qualityDelta*.28+clamp(techDelta,-25,25)*.07+clamp(xfmDelta*5,-5,5)*.05+clamp(expectedBonusDelta*7,-4,4)*.02,-60,60);
+    const edge=clamp(qualityDelta*.72+clamp(techDelta,-25,25)*.12+clamp(xfmDelta*5,-5,5)*.10+clamp(expectedBonusDelta*7,-4,4)*.06,-60,60);
     let verdict,cls,summary;
-    if(edge>=8){verdict='VANTAGGIO PER CHI RICEVE';cls='good';summary='A parità di contesto, il giocatore in entrata porta un valore di mercato e una qualità fantasy superiori.';}
-    else if(edge>=3){verdict='LEGGERO VANTAGGIO IN ENTRATA';cls='good';summary='Il mercato preferisce leggermente il giocatore in entrata, ma lo scambio resta vicino all’equilibrio.';}
+    if(edge>=8){verdict='VANTAGGIO PER CHI RICEVE';cls='good';summary='A parità di contesto, il pacchetto in entrata ha qualità fantasy e rendimento atteso superiori.';}
+    else if(edge>=3){verdict='LEGGERO VANTAGGIO IN ENTRATA';cls='good';summary='Il pacchetto in entrata è leggermente migliore, ma lo scambio resta vicino all’equilibrio.';}
     else if(edge>-3){verdict='SCAMBIO DI MERCATO EQUILIBRATO';cls='';summary='I due profili sono molto vicini: eventuali preferenze dipendono da rosa, ruoli e strategia personali.';}
-    else if(edge>-8){verdict='LEGGERO VANTAGGIO IN USCITA';cls='bad';summary='Nel confronto neutro stai cedendo un valore un po’ più alto di quello che ricevi.';}
-    else{verdict='SVANTAGGIO NELLO SCAMBIO';cls='bad';summary='Nel confronto neutro il giocatore ceduto ha un vantaggio rilevante di valore e/o qualità fantasy.';}
+    else if(edge>-8){verdict='LEGGERO VANTAGGIO IN USCITA';cls='bad';summary='Nel confronto neutro stai cedendo un pacchetto un po’ più forte di quello che ricevi.';}
+    else{verdict='SVANTAGGIO NELLO SCAMBIO';cls='bad';summary='Nel confronto neutro il pacchetto ceduto ha un vantaggio rilevante di qualità fantasy.';}
     if(empty)empty.style.display='none';
-    result.innerHTML=`<div class="trade-general-verdict ${cls}"><small>Giudizio neutro di mercato · ${generalTradeMode} vs ${generalTradeMode}</small><h4>${verdict}</h4><p>${esc(summary)}</p><div class="trade-general-metrics"><span>Cedi <b>${Math.round(outMarket)} cr.</b> MKT</span><span>Ricevi <b>${Math.round(inMarket)} cr.</b> MKT</span><span>Mercato <b>${marketPct>=0?'+':''}${marketPct.toFixed(1)}%</b></span><span>Qualità <b>${qualityDelta>=0?'+':''}${qualityDelta.toFixed(1)}</b></span><span>PI <b>${techDelta>=0?'+':''}${techDelta.toFixed(0)}</b></span>${(avg(outgoing,'fm')||avg(incoming,'fm'))?`<span>FM <b>${fmDelta>=0?'+':''}${fmDelta.toFixed(2)}</b></span>`:''}${(avg(outgoing.filter(x=>x.xfm!==null),'xfm')||avg(incoming.filter(x=>x.xfm!==null),'xfm'))?`<span>xFM <b>${xfmDelta>=0?'+':''}${xfmDelta.toFixed(2)}</b></span><span>EB <b>${expectedBonusDelta>=0?'+':''}${expectedBonusDelta.toFixed(2)}</b></span>`:''}</div><div class="trade-players-compare">${packageHTML('Cedi',outgoing)}${packageHTML('Ricevi',incoming)}</div><div class="trade-general-disclaimer">xFM e Bonus attesi hanno un peso ridotto: la forma conta, ma cinque giornate non annullano PMA, ruolo e prospettiva stagionale.</div></div>`;
+    result.innerHTML=`<div class="trade-general-verdict ${cls}"><small>Giudizio neutro di qualità · ${generalTradeMode} vs ${generalTradeMode}</small><h4>${verdict}</h4><p>${esc(summary)}</p><div class="trade-general-metrics"><span>Qualità <b>${qualityDelta>=0?'+':''}${qualityDelta.toFixed(1)}</b></span><span>PI <b>${techDelta>=0?'+':''}${techDelta.toFixed(0)}</b></span>${(avg(outgoing,'fm')||avg(incoming,'fm'))?`<span>FM <b>${fmDelta>=0?'+':''}${fmDelta.toFixed(2)}</b></span>`:''}${(avg(outgoing.filter(x=>x.xfm!==null),'xfm')||avg(incoming.filter(x=>x.xfm!==null),'xfm'))?`<span>xFM <b>${xfmDelta>=0?'+':''}${xfmDelta.toFixed(2)}</b></span><span>EB <b>${expectedBonusDelta>=0?'+':''}${expectedBonusDelta.toFixed(2)}</b></span>`:''}</div><div class="trade-players-compare">${packageHTML('Cedi',outgoing)}${packageHTML('Ricevi',incoming)}</div><div class="trade-general-disclaimer">Prezzi, crediti e MKT non incidono. xFM e Bonus attesi hanno un peso ridotto: la forma conta, ma cinque giornate non annullano ruolo e prospettiva stagionale.</div></div>`;
     result.scrollIntoView({behavior:'smooth',block:'nearest'});
   }
   function resetGeneralTrade(){
