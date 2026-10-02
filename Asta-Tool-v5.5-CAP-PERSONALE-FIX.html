@@ -5005,6 +5005,17 @@ const NUOVI_ACQUISTI_DATA=[{"rank":1,"name":"Vicario","role":"p","team":"JUV","t
   DATA.forEach(p=>{const x=latest.get(String(p.id));if(!x)return;const [,pv,mv,fm,gol,gs,rp,rc,ass,amm,esp]=x;Object.assign(p,{pv:Number(pv)||0,mv:Number(mv)||0,fm:Number(fm)||0,gol:Number(gol)||0,gs:Number(gs)||0,ass:Number(ass)||0,amm:Number(amm)||0,esp:Number(esp)||0,rig:`${Number(rp)||0} / ${Number(rc)||0}`,gsMedia:Number(pv)?Number(gs)/Number(pv):null,statsUpdatedAt:"2026-10-02"});statsUpdated++;});
   DATA.forEach(p=>{p.infortunio="";p.rientro=null;});
   I.forEach(([id,note,returnDate])=>{const p=DATA.find(x=>String(x.id)===String(id));if(p)Object.assign(p,{infortunio:note,rientro:returnDate,injuryUpdatedAt:"2026-10-02"});});
+  /* Il listone viene aggiornato dopo il motore: rigenera gli indici usati dalla ricerca live. */
+  if(typeof DATA_BY_KEY!=="undefined"){
+    Object.keys(DATA_BY_KEY).forEach(k=>delete DATA_BY_KEY[k]);
+    DATA.forEach(p=>{DATA_BY_KEY[playerKey(p)]=p;});
+  }
+  if(typeof FAST_SEARCH_INDEX!=="undefined"){
+    FAST_SEARCH_INDEX.splice(0,FAST_SEARCH_INDEX.length,...DATA.map(p=>({p,name:String(p.name||"").toLowerCase(),team:String(CAL.teamNames[p.team]||p.team||"").toLowerCase()})));
+  }
+  if(typeof ROLE_RANK_CACHE!=="undefined"){
+    ROLE_ORDER.forEach(role=>{ROLE_RANK_CACHE[role]=DATA.filter(p=>p.role===role).map(p=>({k:playerKey(p),s:rawPlayerScore(p)})).sort((a,b)=>a.s-b.s);});
+  }
   window.__listone202627={updated,added,removed:6,source:"Quotazioni Fantacalcio 2026/27"};
   window.__stats202627={updated:statsUpdated,matchdays:5,source:"Statistiche Fantacalcio 2026/27"};
   window.__injuries202627={updated:I.length,source:"Fantacalcio.it infortunati Serie A"};
